@@ -1,5 +1,7 @@
 package pkg
 
+import "../ipv4"
+
 type Node struct {
 	LocalAddr      string
 	Port           int

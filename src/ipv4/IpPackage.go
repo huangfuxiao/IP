@@ -1,6 +1,7 @@
 package ipv4
 
 import (
+	"fmt"
 	"net"
 )
 
@@ -24,10 +25,27 @@ func BuildIpPacket(payload []byte, protocol int, src string, dest string) IpPack
 	return IpPackage{header, payload}
 }
 
-/*
-func (ipp *IpPackage) String() string {
-	if h == nil {
-		return "<nil>"
+// Read the IpPackage and return it as a string message
+func String(ipp IpPackage) string {
+	return fmt.Sprintf("src_pi: %v\ndst_ip: %v\nbody_len: %d\nheader:\n\ttos: \t%#x\n\tid: \t%#x\n\tprot: \t%d\npayload: %s", ipp.IpHeader.Src, ipp.IpHeader.Dst, ipp.IpHeader.TotalLen-20, ipp.IpHeader.TOS, ipp.IpHeader.ID, ipp.IpHeader.Protocol, ipp.Payload)
+}
+
+// Change the IpPackage into buffer and ready for UDP transmission
+func IpPkgToBuffer(ipp IpPackage) []byte {
+	buffer, e := ipp.IpHeader.Marshal()
+	if buffer == nil {
+		fmt.Println(e)
 	}
-	return fmt.Sprintf("ver=%d hdrlen=%d tos=%#x totallen=%d id=%#x flags=%#x fragoff=%#x ttl=%d proto=%d cksum=%#x src=%v dst=%v", h.Version, h.Len, h.TOS, h.TotalLen, h.ID, h.Flags, h.FragOff, h.TTL, h.Protocol, h.Checksum, h.Src, h.Dst)
-}*/
+	buffer = append(buffer, ipp.Payload...)
+	return buffer
+}
+
+// Read the buffer from UDP transmission and change it into a IpPackage
+func BufferToIpPkg(buffer []byte) IpPackage {
+	h, e := ParseHeader(buffer[0:20])
+	if h == nil {
+		fmt.Println(e)
+	}
+	p := buffer[20:]
+	return IpPackage{*h, p}
+}

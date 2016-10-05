@@ -22,16 +22,27 @@ func main() {
 		Dst:      net.ParseIP(dest),
 		Options:  []byte{},
 	}
+	/*
+		ret := header.String()
+		fmt.Println(ret)
 
-	ret := header.String()
-	fmt.Println(ret)
+		a, b := header.Marshal()
+		fmt.Println(a)
+		fmt.Println(b)
 
-	a, b := header.Marshal()
-	fmt.Println(a)
-	fmt.Println(b)
+		c, d := ipv4.ParseHeader(a)
+		fmt.Println(c)
+		fmt.Println(d)
+	*/
+	x := ipv4.IpPackage{header, payload}
+	fmt.Println(x)
+	y := ipv4.String(x)
+	fmt.Println(y)
 
-	c, d := ipv4.ParseHeader(a)
-	fmt.Println(c)
-	fmt.Println(d)
+	z := ipv4.IpPkgToBuffer(x)
+	fmt.Println(z)
+
+	t := ipv4.BufferToIpPkg(z)
+	fmt.Println(ipv4.String(t))
 
 }

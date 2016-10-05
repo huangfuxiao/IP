@@ -20,10 +20,9 @@ type Interface struct {
 }
 
 type Entry struct {
-	Dest         string
-	Next         string
-	Cost         int
-	Time_to_live int
+	Dest     string
+	SrcInter string
+	Cost     int
 }
 
 func (n *Node) PrintInterfaces() {

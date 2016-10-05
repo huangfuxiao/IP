@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./pkg"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -9,29 +10,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-//Define a Node struct
-type Node struct {
-	LocalAddr      string
-	Port           int
-	InterfaceArray []Interface
-	RouteTable     map[string]Entry
-}
-
-type Interface struct {
-	Status     int
-	Src        string
-	Dest       string
-	RemotePort int
-	RemoteAddr string
-}
-
-type Entry struct {
-	Dest         string
-	Next         string
-	Cost         int
-	Time_to_live int
-}
 
 // Read a whole file into the memory and store it as array of lines
 func readLines(path string) (lines []string, err error) {
@@ -68,11 +46,12 @@ func perror(err error) {
 
 func main() {
 	//Read in a lnx file
-	lines, err := readLines("long1.lnx")
+	fileName := os.Args[1]
+	lines, err := readLines(fileName)
 
 	//Initialize a node struct and its rounting table
-	var thisNode Node
-	thisRT := make(map[string]Entry)
+	var thisNode pkg.Node
+	thisRT := make(map[string]pkg.Entry)
 
 	//Put first line into this node's local address and port
 	var localInfor []string
@@ -86,7 +65,7 @@ func main() {
 
 	//Loop through each link lines and add the link interface to this node's InterfaceArray
 	for _, line := range lines[1:] {
-		var thisLink Interface
+		var thisLink pkg.Interface
 		var linkInfor []string
 		linkInfor = strings.Split(line, " ")
 		thisLink.Status = 1
@@ -105,7 +84,7 @@ func main() {
 		thisNode.InterfaceArray = append(thisNode.InterfaceArray, thisLink)
 
 		//Put this link into the rounting table
-		var thisEntry Entry
+		var thisEntry pkg.Entry
 		thisEntry.Cost = 0
 		thisEntry.Dest = thisLink.Src
 		thisEntry.Next = thisLink.Src

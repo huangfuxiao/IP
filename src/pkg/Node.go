@@ -12,20 +12,6 @@ type Node struct {
 	RouteTable     map[string]Entry
 }
 
-type Interface struct {
-	Status     int
-	Src        string
-	Dest       string
-	RemotePort int
-	RemoteAddr string
-}
-
-type Entry struct {
-	Dest string
-	Next string
-	Cost int
-}
-
 func (n *Node) PrintInterfaces() {
 	fmt.Println("id\tdst\t\tsrc\t\tenabled")
 	i := 0
@@ -62,17 +48,22 @@ func (n *Node) PrepareAndSendPacket() {
 	fmt.Println("Do nothing for prepareAndSendPacket for now")
 }
 
+<<<<<<< HEAD
 func (n *Node) SetMTU() {
 	fmt.Println("Do nothing for setMTU for now")
 
 }
 
 func (n *Node) GetRemotePhysAddr(virIP string) (string, int) {
+=======
+func (n *Node) GetRemotePhysAddr(virIP string) (phyAddr string, port int) {
+>>>>>>> 833d3cdeae0db3e222c9de039601a102dad3c84f
 	for _, link := range n.InterfaceArray {
 		if strings.Compare(virIP, link.Dest) == 0 {
 			return link.RemoteAddr, link.RemotePort
 		}
 	}
-	return nil
+	err := "error"
+	return err, -1
 
 }

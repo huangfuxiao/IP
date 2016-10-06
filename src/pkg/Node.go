@@ -10,21 +10,6 @@ type Node struct {
 	Port           int
 	InterfaceArray []*Interface
 	RouteTable     map[string]Entry
-	destVirIpToInterface
-}
-
-type Interface struct {
-	Status     int
-	Src        string
-	Dest       string
-	RemotePort int
-	RemoteAddr string
-}
-
-type Entry struct {
-	Dest string
-	Next string
-	Cost int
 }
 
 func (n *Node) PrintInterfaces() {
@@ -63,17 +48,13 @@ func (n *Node) PrepareAndSendPacket() {
 	fmt.Println("Do nothing for prepareAndSendPacket for now")
 }
 
-func (n *Node) SetMTU() {
-	fmt.Println("Do nothing for setMTU for now")
-
-}
-
 func (n *Node) GetRemotePhysAddr(virIP string) (phyAddr string, port int) {
 	for _, link := range n.InterfaceArray {
 		if strings.Compare(virIP, link.Dest) == 0 {
 			return link.RemoteAddr, link.RemotePort
 		}
 	}
-	return nil
+	err := "error"
+	return err, -1
 
 }

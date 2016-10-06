@@ -27,7 +27,7 @@ func BuildIpPacket(payload []byte, protocol int, src string, dest string) IpPack
 
 // Read the IpPackage and return it as a string message
 func String(ipp IpPackage) string {
-	return fmt.Sprintf("src_pi: %v\ndst_ip: %v\nbody_len: %d\nheader:\n\ttos: \t%#x\n\tid: \t%#x\n\tprot: \t%d\npayload: %s", ipp.IpHeader.Src, ipp.IpHeader.Dst, ipp.IpHeader.TotalLen-20, ipp.IpHeader.TOS, ipp.IpHeader.ID, ipp.IpHeader.Protocol, ipp.Payload)
+	return fmt.Sprintf("src_ip: %v\ndst_ip: %v\nbody_len: %d\nheader:\n    tos:   %#x\n    id:    %#x\n    prot:   %d\npayload: %s", ipp.IpHeader.Src, ipp.IpHeader.Dst, ipp.IpHeader.TotalLen-20, ipp.IpHeader.TOS, ipp.IpHeader.ID, ipp.IpHeader.Protocol, ipp.Payload)
 }
 
 // Change the IpPackage into buffer and ready for UDP transmission

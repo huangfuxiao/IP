@@ -38,8 +38,8 @@ func main() {
 	*/
 	x := ipv4.IpPackage{header, payload}
 	fmt.Println(x)
-	//y := ipv4.String(x)
-	//fmt.Println(y)
+	y := ipv4.String(x)
+	fmt.Println(y)
 	/*
 		z := ipv4.IpPkgToBuffer(x)
 		fmt.Println(z)

@@ -88,7 +88,6 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 		thisEntry.Cost = 0
 		thisEntry.Dest = thisLink.Src
 		thisEntry.Next = thisLink.Src
-		thisEntry.Time_to_live = 16
 		thisRT[thisLink.Src] = thisEntry
 	}
 
@@ -102,10 +101,9 @@ func printHelp() {
 	fmt.Println("[h]elp\t\t\t\tHelp Printing")
 	fmt.Println("[i]nterfaces\t\t\tInterface Information")
 	fmt.Println("[r]outes\t\t\tRouting table")
-	fmt.Println("[d]own\t\t\t\tBring one interface down")
-	fmt.Println("[u]p\t\t\t\tBring one interface up")
-	fmt.Println("[s]end\t\t\t\tSend the message to a virtual IP")
-	fmt.Println("[m]tu\t\t\t\tSet MTU")
+	fmt.Println("[d]own <id>\t\t\t\tBring one interface down")
+	fmt.Println("[u]p <id>\t\t\t\tBring one interface up")
+	fmt.Println("[s]end <dst_ip> <prot> <payload>\t\t\t\tSend the message to a virtual IP")
 	fmt.Println("[q]uit\t\t\t\tQUIT")
 }
 
@@ -160,8 +158,6 @@ func main() {
 				thisNode.InterfacesUp()
 			case "send\n", "s\n":
 				thisNode.PrepareAndSendPacket()
-			case "mtu\n", "m\n":
-				thisNode.SetMTU()
 			case "quit\n", "q\n":
 				os.Exit(1)
 			}

@@ -10,7 +10,6 @@ type Node struct {
 	Port           int
 	InterfaceArray []*Interface
 	RouteTable     map[string]Entry
-	destVirIpToInterface
 }
 
 type Interface struct {
@@ -68,7 +67,7 @@ func (n *Node) SetMTU() {
 
 }
 
-func (n *Node) GetRemotePhysAddr(virIP string) (phyAddr string, port int) {
+func (n *Node) GetRemotePhysAddr(virIP string) (string, int) {
 	for _, link := range n.InterfaceArray {
 		if strings.Compare(virIP, link.Dest) == 0 {
 			return link.RemoteAddr, link.RemotePort

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"strings"
 )
 
 type Node struct {
@@ -9,6 +10,7 @@ type Node struct {
 	Port           int
 	InterfaceArray []*Interface
 	RouteTable     map[string]Entry
+	destVirIpToInterface
 }
 
 type Interface struct {
@@ -20,9 +22,9 @@ type Interface struct {
 }
 
 type Entry struct {
-	Dest     string
-	SrcInter string
-	Cost     int
+	Dest string
+	Next string
+	Cost int
 }
 
 func (n *Node) PrintInterfaces() {
@@ -63,5 +65,15 @@ func (n *Node) PrepareAndSendPacket() {
 
 func (n *Node) SetMTU() {
 	fmt.Println("Do nothing for setMTU for now")
+
+}
+
+func (n *Node) GetRemotePhysAddr(virIP string) (phyAddr string, port int) {
+	for _, link := range n.InterfaceArray {
+		if strings.Compare(virIP, link.Dest) == 0 {
+			return link.RemoteAddr, link.RemotePort
+		}
+	}
+	return nil
 
 }

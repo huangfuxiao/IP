@@ -2,11 +2,13 @@ package main
 
 import (
 	"./ipv4"
+	"./linklayer"
 	"fmt"
 	"net"
 )
 
 func main() {
+
 	src := "192.168.1.1"
 	dest := "192.168.0.1"
 	payload := []byte("hello")
@@ -36,13 +38,19 @@ func main() {
 	*/
 	x := ipv4.IpPackage{header, payload}
 	fmt.Println(x)
-	y := ipv4.String(x)
-	fmt.Println(y)
+	//y := ipv4.String(x)
+	//fmt.Println(y)
+	/*
+		z := ipv4.IpPkgToBuffer(x)
+		fmt.Println(z)
 
-	z := ipv4.IpPkgToBuffer(x)
-	fmt.Println(z)
-
-	t := ipv4.BufferToIpPkg(z)
-	fmt.Println(ipv4.String(t))
+		t := ipv4.BufferToIpPkg(z)
+		fmt.Println(ipv4.String(t))
+	*/
+	addr := "localhost"
+	port := 5002
+	u := linklayer.InitUDP(addr, port)
+	fmt.Println(u)
+	u.Send(x, "localhost", 5003)
 
 }

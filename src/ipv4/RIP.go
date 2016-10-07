@@ -1,12 +1,12 @@
 package ipv4
 
 type RIP struct {
-	command    int // command: 1 - request, 2 - response
-	numEntries int
-	entries    []RIPEntry
+	Command    int // command: 1 - request, 2 - response
+	NumEntries int
+	Entries    []RIPEntry
 }
 
 type RIPEntry struct {
-	cost    int
-	address string
+	Cost    int
+	Address string
 }

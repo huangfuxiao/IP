@@ -98,13 +98,13 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 
 func printHelp() {
 	fmt.Println("******************************")
-	fmt.Println("[h]elp\t\t\t\tHelp Printing")
-	fmt.Println("[i]nterfaces\t\t\tInterface Information")
-	fmt.Println("[r]outes\t\t\tRouting table")
-	fmt.Println("[d]own <id>\t\t\t\tBring one interface down")
-	fmt.Println("[u]p <id>\t\t\t\tBring one interface up")
-	fmt.Println("[s]end <dst_ip> <prot> <payload>\t\t\t\tSend the message to a virtual IP")
-	fmt.Println("[q]uit\t\t\t\tQUIT")
+	fmt.Println("help\t\t\t\tHelp Printing")
+	fmt.Println("interfaces\t\t\tInterface Information")
+	fmt.Println("routes\t\t\tRouting table")
+	fmt.Println("down <id>\t\t\t\tBring one interface down")
+	fmt.Println("up <id>\t\t\t\tBring one interface up")
+	fmt.Println("send <dst_ip> <prot> <payload>\t\t\t\tSend the message to a virtual IP")
+	fmt.Println("quit\t\t\t\tQUIT")
 }
 
 func main() {
@@ -141,27 +141,36 @@ func main() {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Println("Enter text: ")
 		text, _ := reader.ReadString('\n')
+		cmds := strings.Fields(text)
 
-		if len(text) < 1 {
-			fmt.Println("Please type a valid command or help")
-		} else {
-			switch text {
-			case "help\n", "h\n":
-				printHelp()
-			case "interface\n", "i\n":
-				thisNode.PrintInterfaces()
-			case "routes\n", "r\n":
-				thisNode.PrintRoutes()
-			case "down\n", "d\n":
-				thisNode.InterfacesDown()
-			case "up\n", "u\n":
-				thisNode.InterfacesUp()
-			case "send\n", "s\n":
-				thisNode.PrepareAndSendPacket()
-			case "quit\n", "q\n":
-				os.Exit(1)
+		switch cmds[0] {
+		case "help":
+			printHelp()
+		case "interface":
+			thisNode.PrintInterfaces()
+		case "routes":
+			thisNode.PrintRoutes()
+		case "down":
+			if len(cmds) == 1 {
+				fmt.Println("invalid interface id")
+			} else {
+				id, _ := strconv.Atoi(cmds[1])
+				thisNode.InterfacesDown(id)
 			}
-
+		case "up":
+			if len(cmds) == 1 {
+				fmt.Println("invalid interface id")
+			} else {
+				id, _ := strconv.Atoi(cmds[1])
+				thisNode.InterfacesUp(id)
+			}
+		case "send":
+			thisNode.PrepareAndSendPacket()
+		case "quit":
+			os.Exit(1)
+		default:
+			fmt.Println("Invalid Command!\n")
+			printHelp()
 		}
 	}
 

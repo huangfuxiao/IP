@@ -32,32 +32,19 @@ func (n *Node) PrintRoutes() {
 	}
 }
 
-func (n *Node) InterfacesDown() {
-	for _, link := range n.InterfaceArray {
-		link.Status = 0
-	}
+func (n *Node) InterfacesDown(id int) {
+	n.InterfaceArray[id].Status = 0
 }
 
-func (n *Node) InterfacesUp() {
-	for _, link := range n.InterfaceArray {
-		link.Status = 1
-	}
+func (n *Node) InterfacesUp(id int) {
+	n.InterfaceArray[id].Status = 1
 }
 
 func (n *Node) PrepareAndSendPacket() {
 	fmt.Println("Do nothing for prepareAndSendPacket for now")
 }
 
-<<<<<<< HEAD
-func (n *Node) SetMTU() {
-	fmt.Println("Do nothing for setMTU for now")
-
-}
-
 func (n *Node) GetRemotePhysAddr(virIP string) (string, int) {
-=======
-func (n *Node) GetRemotePhysAddr(virIP string) (phyAddr string, port int) {
->>>>>>> 833d3cdeae0db3e222c9de039601a102dad3c84f
 	for _, link := range n.InterfaceArray {
 		if strings.Compare(virIP, link.Dest) == 0 {
 			return link.RemoteAddr, link.RemotePort

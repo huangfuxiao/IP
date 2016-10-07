@@ -29,31 +29,45 @@ func buildTestNode() (testNode pkg.Node) {
 	return testNode
 }
 
-//Conver payLoad to RIP: to be implemented.
-//Currently just create a test RIP
+//Convert payLoad's []byte to RIP packet
 func convertBytesToRIP(data []byte) ipv4.RIP {
-	fmt.Println(data)
 	var newRip ipv4.RIP
-	/*
-		opcode := binary.BigEndian.Uint16(data) // this will get first 2 bytes to be interpreted as uint16 number
-		raw_data := data[2:len(data)]           // this will copy rest of the raw data in to raw_data byte stream
-	*/
-	newRip.Command = 2
-	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: 0, Address: "192.168.0.1"})
-	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: 0, Address: "192.168.0.13"})
-	newRip.NumEntries = len(newRip.Entries)
+	err := json.Unmarshal(data, &newRip)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	fmt.Printf("%+v", newRip)
 	return newRip
 }
 
-//Convert RIP to IP Packet
-func convertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
+//Convert RIP to payLoad []byte
+func convertRipToBytes(rip ipv4.RIP) []byte {
 	b, err := json.Marshal(rip)
 	if err != nil {
 		fmt.Println("error with json.Marshal:", err)
 	}
 	os.Stdout.Write(b)
+	return b
+}
+
+//Convert RIP to IP Packet
+func convertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
+	b := convertRipToBytes(rip)
 	ipPkt := ipv4.BuildIpPacket(b, 200, src, dest)
 	return ipPkt
+}
+
+//Send Trigger Updates using RIP to All of Node's Neighbors
+func sendTriggerUpdates(destIpAddr string, cost int, node pkg.Node) {
+	var newRip ipv4.RIP
+	newRip.Command = 2
+	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: cost, Address: destIpAddr})
+	newRip.NumEntries = len(newRip.Entries)
+	for _, link := range node.InterfaceArray {
+		ipPkt := convertRipToIpPackage(newRip, link.Src, link.Dest)
+		u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
+		fmt.Printf("Trigger update RIP sent to this address: %s to %d with cost: %d\n", link.RemoteAddr, link.RemotePort, cost)
+	}
 }
 
 //IP protocol=0
@@ -165,14 +179,13 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 
 			} else if rip.Command == 2 {
 
-				isRouteTableUpdated := 0
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
 				v, ok := node.RouteTable[srcIpAddr]
 				if ok {
 					fmt.Println("Check cost! Address already exist: ", v)
 					if v.Cost > 1 {
 						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
-						isRouteTableUpdated++
+						sendTriggerUpdates(srcIpAddr, 1, node)
 					}
 				}
 				/* Then, loop through all of the rip's entry
@@ -185,21 +198,15 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 						fmt.Println("Check cost! RIPEntry's address already exist: ", value)
 						if (entry.Cost + 1) < value.Cost {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-							isRouteTableUpdated++
+							sendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node)
 						}
 						/* Split horizon with poison reverse
 						   To be implemented*/
 					} else {
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-						isRouteTableUpdated++
+						sendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node)
 					}
 				}
-
-				if isRouteTableUpdated > 0 {
-					//Send trigger updates of node.RouteTabl as RIP to all of node's neighbors
-					/*To be implemented*/
-				}
-
 				return
 			} else {
 				fmt.Println("Unrecognized RIP protocol!\n")

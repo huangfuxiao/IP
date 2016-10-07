@@ -14,32 +14,18 @@ var u linklayer.UDPLink
 
 //Build a test node; will be removed after testing
 func buildTestNode() (testNode pkg.Node) {
-	var testLink1, testLink2 pkg.Interface
 	testRT := make(map[string]pkg.Entry)
-	var testEntry1, testEntry2 pkg.Entry
 	testNode.LocalAddr = "localhost"
 	testNode.Port = 5003
-	testLink1.Status = 1
-	testLink1.Src = "192.168.0.12"
-	testLink1.Dest = "192.168.0.11"
-	testLink1.RemotePort = 5000
-	testLink1.RemoteAddr = "localhost"
+	testLink1 := pkg.Interface{Status: 1, Src: "192.168.0.12", Dest: "192.168.0.11", RemotePort: 5000, RemoteAddr: "localhost"}
+	testLink2 := pkg.Interface{Status: 1, Src: "192.168.0.14", Dest: "192.168.0.13", RemotePort: 5004, RemoteAddr: "localhost"}
 	testNode.InterfaceArray = append(testNode.InterfaceArray, &testLink1)
-	testLink2.Status = 1
-	testLink2.Src = "192.168.0.14"
-	testLink2.Dest = "192.168.0.13"
-	testLink2.RemotePort = 5004
-	testLink2.RemoteAddr = "localhost"
 	testNode.InterfaceArray = append(testNode.InterfaceArray, &testLink2)
-	testEntry1.Cost = 0
-	testEntry1.Dest = testLink1.Src
-	testEntry1.Next = testLink1.Src
-	testRT[testLink1.Src] = testEntry1
-	testEntry2.Cost = 0
-	testEntry2.Dest = testLink2.Src
-	testEntry2.Next = testLink2.Src
-	testRT[testLink2.Src] = testEntry2
+	testRT[testLink1.Src] = pkg.Entry{Cost: 0, Dest: testLink1.Src, Next: testLink1.Src}
+	testRT[testLink2.Src] = pkg.Entry{Cost: 0, Dest: testLink2.Src, Next: testLink2.Src}
+	testRT["192.168.0.15"] = pkg.Entry{Cost: 1, Dest: "192.168.0.15", Next: "192.168.0.12"}
 	testNode.RouteTable = testRT
+	fmt.Println(testRT)
 	return testNode
 }
 
@@ -76,7 +62,7 @@ func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
-	fmt.Println(srcIpAddr)
+	fmt.Printf("Forward Handler starts! This is the ip package's src address: %s\n", srcIpAddr)
 	ttl := ipPkt.IpHeader.TTL
 	payLoad := ipPkt.Payload
 
@@ -110,6 +96,7 @@ func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 		//Destination matches one on this Node's Rounting Table
 		if strings.Compare(dstIpAddr, v.Dest) == 0 {
 
+			//Find corresponding interface's remote physic address and port
 			for _, link := range node.InterfaceArray {
 				if strings.Compare(v.Next, link.Src) == 0 {
 					//Arrives the target interface
@@ -133,7 +120,7 @@ func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 
 					//Forward ip packet to next node
 					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-					fmt.Printf("Node can get through this interface: %s to %s with cost%d\n", v.Next, v.Dest, v.Cost)
+					fmt.Printf("Node can get through this interface: %s to %s with cost: %d\n", v.Next, v.Dest, v.Cost)
 					return
 				}
 			}
@@ -162,7 +149,6 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 			if rip.Command == 1 {
 
 				//Put all of this node.RouteTable into RIP and send back
-
 				fmt.Println("Start building a response RIP and send back\n")
 				var newRip ipv4.RIP
 				newRip.Command = 2
@@ -178,7 +164,18 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 				return
 
 			} else if rip.Command == 2 {
-				/* Loop through all my the rip's entry
+
+				isRouteTableUpdated := 0
+				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
+				v, ok := node.RouteTable[srcIpAddr]
+				if ok {
+					fmt.Println("Check cost! Address already exist: ", v)
+					if v.Cost > 1 {
+						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
+						isRouteTableUpdated++
+					}
+				}
+				/* Then, loop through all of the rip's entry
 				   Compare if the RIPEntry's Address already on this node.RouteTable
 				   If so, compare the cost
 				*/
@@ -186,27 +183,28 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 					value, ok := node.RouteTable[entry.Address]
 					if ok {
 						fmt.Println("Check cost! RIPEntry's address already exist: ", value)
-						if value.Next != dstIpAddr && (entry.Cost+1) < value.Cost {
+						if (entry.Cost + 1) < value.Cost {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
+							isRouteTableUpdated++
 						}
 						/* Split horizon with poison reverse
 						   To be implemented*/
 					} else {
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
+						isRouteTableUpdated++
 					}
 				}
-				/* Send updated route table as RIP to all the neibors
-				   To be implemented
-				*/
 
-				/* Last, insert this neighbor to to node.RouteTable with cost = 1 */
-				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
+				if isRouteTableUpdated > 0 {
+					//Send trigger updates of node.RouteTabl as RIP to all of node's neighbors
+					/*To be implemented*/
+				}
+
 				return
 			} else {
 				fmt.Println("Unrecognized RIP protocol!\n")
 				return
 			}
-
 		}
 	}
 
@@ -222,7 +220,7 @@ func main() {
 	testHeader.Protocol = 0
 	fmt.Printf("testHeader's protocol: %d\n", testHeader.Protocol)
 	payload := []byte("hello")
-	testPkt = ipv4.BuildIpPacket(payload, testHeader.Protocol, "192.168.0.13", "192.168.0.14")
+	testPkt = ipv4.BuildIpPacket(payload, testHeader.Protocol, "192.168.0.13", "192.168.0.15")
 
 	u = linklayer.InitUDP(testNode.LocalAddr, testNode.Port)
 

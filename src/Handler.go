@@ -4,9 +4,7 @@ import (
 	"./ipv4"
 	"./linklayer"
 	"./pkg"
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -29,36 +27,15 @@ func buildTestNode() (testNode pkg.Node) {
 	return testNode
 }
 
-//Convert payLoad's []byte to RIP packet
-func convertBytesToRIP(data []byte) ipv4.RIP {
-	var newRip ipv4.RIP
-	err := json.Unmarshal(data, &newRip)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-	fmt.Printf("%+v", newRip)
-	return newRip
-}
-
-//Convert RIP to payLoad []byte
-func convertRipToBytes(rip ipv4.RIP) []byte {
-	b, err := json.Marshal(rip)
-	if err != nil {
-		fmt.Println("error with json.Marshal:", err)
-	}
-	os.Stdout.Write(b)
-	return b
-}
-
 //Convert RIP to IP Packet
 func convertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
-	b := convertRipToBytes(rip)
+	b := ipv4.ConvertRipToBytes(rip)
 	ipPkt := ipv4.BuildIpPacket(b, 200, src, dest)
 	return ipPkt
 }
 
 //Send Trigger Updates using RIP to All of Node's Neighbors
-func sendTriggerUpdates(destIpAddr string, cost int, node pkg.Node) {
+func sendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node) {
 	var newRip ipv4.RIP
 	newRip.Command = 2
 	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: cost, Address: destIpAddr})
@@ -70,38 +47,13 @@ func sendTriggerUpdates(destIpAddr string, cost int, node pkg.Node) {
 	}
 }
 
-//IP protocol=0
-func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
-	fmt.Println("Start runForwardHandler: \n")
+//IP is not locally arrived
+func forwardIpPackage(ipPkt ipv4.IpPackage, node pkg.Node) {
+	fmt.Println("Start Forwarding IP Package: \n")
 
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
-	srcIpAddr := ipPkt.IpHeader.Src.String()
-	fmt.Printf("Forward Handler starts! This is the ip package's src address: %s\n", srcIpAddr)
-	ttl := ipPkt.IpHeader.TTL
-	payLoad := ipPkt.Payload
 
-	//Check TTL
-	if ttl <= 0 {
-		fmt.Println("Time to live runs out. Packet has to be dropped\n")
-		return
-	}
-
-	//Local interface check
-	for _, link := range node.InterfaceArray {
-		if strings.Compare(dstIpAddr, link.Src) == 0 {
-			//Payload is not empty
-			if len(payLoad) > 0 {
-				fmt.Println("Local Arrived! Here is the payload: ")
-				os.Stdout.Write(payLoad)
-				fmt.Println("\n")
-			} else {
-				fmt.Println("Payload is empty")
-			}
-			return
-		}
-	}
-
-	//forward to upper node
+	//Loop through node.RouteTable, and forward to upper node
 	for k, v := range node.RouteTable {
 		if len(k) < 0 {
 			fmt.Println("The rounting table currently has no routes!\n")
@@ -126,13 +78,13 @@ func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 						return
 					}
 
-					ipPkt.IpHeader.TTL--
-					if ipPkt.IpHeader.TTL <= 0 {
+					if ipPkt.IpHeader.TTL < 0 {
 						fmt.Println("Time to live runs out. Packet has to be dropped\n")
 						return
 					}
 
 					//Forward ip packet to next node
+					ipPkt.IpHeader.TTL--
 					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 					fmt.Printf("Node can get through this interface: %s to %s with cost: %d\n", v.Next, v.Dest, v.Cost)
 					return
@@ -144,25 +96,39 @@ func runForwardHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 	return
 }
 
+//IP protocol=0
+func runDataHandler(ipPkt ipv4.IpPackage, node *pkg.Node) string {
+	payLoad := string(ipPkt.Payload)
+	fmt.Println(payLoad)
+	return payLoad
+}
+
 //IP protocol=200
-func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
+func runRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 	fmt.Println("Start runRIPHandler: \n")
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
 	fmt.Println(srcIpAddr)
 	payLoad := ipPkt.Payload
 
-	//Check if the srcIpAddr is connected with me
 	for _, link := range node.InterfaceArray {
-		fmt.Println(link.Dest)
 		if strings.Compare(srcIpAddr, link.Dest) == 0 {
 			//Arrive the interface
-			rip := convertBytesToRIP(payLoad)
+			rip := ipv4.ConvertBytesToRIP(payLoad)
 
 			//RIP Request
 			if rip.Command == 1 {
+				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
+				v, ok := node.RouteTable[srcIpAddr]
+				if ok {
+					fmt.Println("Check cost! Address already exist: ", v)
+					if v.Cost > 1 {
+						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
+						sendTriggerUpdates(srcIpAddr, 1, node)
+					}
+				}
 
-				//Put all of this node.RouteTable into RIP and send back
+				//Then, put all of this node.RouteTable into RIP and send back
 				fmt.Println("Start building a response RIP and send back\n")
 				var newRip ipv4.RIP
 				newRip.Command = 2
@@ -214,47 +180,56 @@ func runRIPHandler(ipPkt ipv4.IpPackage, node pkg.Node) {
 			}
 		}
 	}
-
-	fmt.Printf("Cannot find a interface in this node's routing table. Packet has to be dropped\n")
 	return
 }
 
 func main() {
-	//Create a test node, IP header and pkt
+	//Create a test node, IP header and pkt, and UDP connection
 	testNode := buildTestNode()
 	var testHeader ipv4.Header
 	var testPkt ipv4.IpPackage
 	testHeader.Protocol = 0
-	fmt.Printf("testHeader's protocol: %d\n", testHeader.Protocol)
 	payload := []byte("hello")
 	testPkt = ipv4.BuildIpPacket(payload, testHeader.Protocol, "192.168.0.13", "192.168.0.15")
-
 	u = linklayer.InitUDP(testNode.LocalAddr, testNode.Port)
 
 	fmt.Println("Test Handler Main Begins: \n")
 
-	switch testPkt.IpHeader.Protocol {
-	case 0:
-		runForwardHandler(testPkt, testNode)
-	case 200:
-		runRIPHandler(testPkt, testNode)
+	//Open the IP package
+	dstIpAddr := testPkt.IpHeader.Dst.String()
+	srcIpAddr := testPkt.IpHeader.Src.String()
+	fmt.Printf("Forward Handler starts! This is the ip package's src address: %s\n", srcIpAddr)
+	payLoad := testPkt.Payload
+
+	//Check TTL
+	if testPkt.IpHeader.TTL < 0 {
+		fmt.Println("Time to live runs out. Packet has to be dropped\n")
+		return
+	}
+	//Check IP destination
+	//Local interface check
+	for _, link := range testNode.InterfaceArray {
+		if strings.Compare(dstIpAddr, link.Src) == 0 {
+			fmt.Println("Local Arrived!")
+			//Payload is not empty
+			if len(payLoad) == 0 {
+				fmt.Println("But payload is empty.\n")
+				return
+			} else {
+				fmt.Println("Payload is not empty. Start handling!\n")
+				switch testPkt.IpHeader.Protocol {
+				case 0:
+					runDataHandler(testPkt, &testNode)
+					return
+				case 200:
+					runRIPHandler(testPkt, &testNode)
+					return
+				}
+			}
+		}
 	}
 
-	/*
-		for{
-			for _, link := range node.InterfaceArray {
-				if link.status >0 {
-					var pkt = node.bufferRead(link)
-					int protocol = getIPProtocol(pkt.head)
-					switch protocol {
-					case 0:
-						runIpHandler(IPPackage, node)
-					case 200:
-						runRIPHandler(IPPackage, node)
-				}
-
-		     }
-		}
-	*/
-
+	//Forward IP package to upper layer
+	forwardIpPackage(testPkt, testNode)
+	return
 }

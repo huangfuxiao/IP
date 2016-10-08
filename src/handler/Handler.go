@@ -85,6 +85,10 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(srcIpAddr, link.Dest) == 0 {
 			//Arrive the interface
+			if link.Status == 0 {
+				fmt.Println("Interface is down. Packet has to be dropped\n")
+				return
+			}
 			rip := ipv4.ConvertBytesToRIP(payLoad)
 
 			//RIP Request

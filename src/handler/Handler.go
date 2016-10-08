@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-var u linklayer.UDPLink
-
 //Convert RIP to IP Packet
 func ConvertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
 	b := ipv4.ConvertRipToBytes(rip)
@@ -18,7 +16,7 @@ func ConvertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage
 }
 
 //Send Trigger Updates using RIP to All of Node's Neighbors
-func SendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node) {
+func SendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node, u linklayer.UDPLink) {
 	var newRip ipv4.RIP
 	newRip.Command = 2
 	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: cost, Address: destIpAddr})
@@ -31,7 +29,7 @@ func SendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node) {
 }
 
 //IP is not locally arrived
-func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node) {
+func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 
 	//Loop through node.RouteTable, and forward to upper node
@@ -79,7 +77,7 @@ func RunDataHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 }
 
 //IP protocol=200
-func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
+func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
 	payLoad := ipPkt.Payload
@@ -93,7 +91,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 			if rip.Command == 1 {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
 				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
-				SendTriggerUpdates(srcIpAddr, 1, node)
+				SendTriggerUpdates(srcIpAddr, 1, node, u)
 
 				//Then, put all of this node.RouteTable into RIP and send back
 				var newRip ipv4.RIP
@@ -117,7 +115,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 				if ok {
 					if v.Cost > 1 {
 						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
-						SendTriggerUpdates(srcIpAddr, 1, node)
+						SendTriggerUpdates(srcIpAddr, 1, node, u)
 					}
 				}
 				/* Then, loop through all of the rip's entry
@@ -130,14 +128,14 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 						/*Implement poison reverse first*/
 						if (entry.Cost == 16) && (dstIpAddr == value.Next) {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
-							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node)
+							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
 						} else if (entry.Cost + 1) < value.Cost {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node)
+							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
 						}
 					} else {
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node)
+						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
 					}
 				}
 				return
@@ -150,9 +148,8 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
 	return
 }
 
-func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, udpLink linklayer.UDPLink) {
+func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	//Open the IP package
-	u = udpLink
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	payLoad := ipPkt.Payload
 
@@ -178,7 +175,7 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, udpLink linklayer.UDP
 					RunDataHandler(ipPkt, node)
 					return
 				case 200:
-					RunRIPHandler(ipPkt, node)
+					RunRIPHandler(ipPkt, node, u)
 					return
 				}
 			}
@@ -186,6 +183,6 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, udpLink linklayer.UDP
 	}
 
 	//Forward IP package to upper layer
-	ForwardIpPackage(ipPkt, node)
+	ForwardIpPackage(ipPkt, node, u)
 	return
 }

@@ -164,13 +164,13 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 	//Local interface check
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(dstIpAddr, link.Src) == 0 {
-			fmt.Println("Local Arrived! ")
+			//fmt.Println("Local Arrived! ")
 			//Payload is not empty
 			if len(payLoad) == 0 {
 				fmt.Println("But payload is empty.\n")
 				return
 			} else {
-				fmt.Println("Payload is not empty. Start handling!\n")
+				//fmt.Println("Payload is not empty. Start handling!\n")
 				switch ipPkt.IpHeader.Protocol {
 				case 0:
 					RunDataHandler(ipPkt, node)

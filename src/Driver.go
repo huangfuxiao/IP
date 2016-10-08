@@ -34,7 +34,7 @@ func readLines(path string) (lines []string, err error) {
 		return
 	}
 	reader := bufio.NewReader(file)
-	buffer := bytes.NewBuffer(make([]byte, 1024))
+	buffer := bytes.NewBuffer(make([]byte, 0))
 	for {
 		if part, prefix, err = reader.ReadLine(); err != nil {
 			break

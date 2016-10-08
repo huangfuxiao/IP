@@ -2,6 +2,7 @@ package main
 
 import (
 	"./pkg"
+	"./runner"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Panic if catches an error
@@ -134,6 +136,11 @@ func main() {
 	thisNode := readinLnx(fileName)
 	fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
 
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go runner.Receive_thread()
+	go runner.Send_thread()
 	//main handler
 	//This is silly but works
 	for {
@@ -173,5 +180,6 @@ func main() {
 			printHelp()
 		}
 	}
+	wg.Wait()
 
 }

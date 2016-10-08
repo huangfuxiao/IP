@@ -1,6 +1,8 @@
 package main
 
 import (
+	"./handler"
+	"./ipv4"
 	"./linklayer"
 	"./pkg"
 	"./runner"
@@ -110,6 +112,19 @@ func printHelp() {
 	fmt.Println("quit\t\t\t\tQUIT")
 }
 
+func initRIP(node pkg.Node, udp linklayer.UDPLink) {
+	var newRip ipv4.RIP
+	var ripEntries []ipv4.RIPEntry
+	newRip.Command = 1
+	newRip.NumEntries = 0
+	newRip.Entries = ripEntries
+	//Loop through interfaces and send to all neighbors
+	for _, link := range node.InterfaceArray {
+		ipPkt := handler.ConvertRipToIpPackage(newRip, link.Src, link.Dest)
+		udp.Send(ipPkt, link.RemoteAddr, link.RemotePort)
+	}
+}
+
 func main() {
 
 	//test go programming
@@ -138,11 +153,14 @@ func main() {
 	fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
 
 	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
+
+	initRIP(thisNode, udp)
+
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	go runner.Receive_thread(udp, thisNode)
-	go runner.Send_thread()
+	go runner.Receive_thread(udp, &thisNode)
+	go runner.Send_thread(&thisNode, udp)
 	//main handler
 	//This is silly but works
 	for {

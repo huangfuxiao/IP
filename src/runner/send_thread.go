@@ -22,7 +22,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 
 		//Loop through interfaces and send to all neighbors
 		for _, link := range node.InterfaceArray {
-			ipPkt := handler.ConvertRipToIpPackage(newRip, link.Src, srcIpAddr)
+			ipPkt := handler.ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 			u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 		}
 

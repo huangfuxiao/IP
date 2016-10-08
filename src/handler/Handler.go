@@ -90,6 +90,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 			//RIP Request
 			if rip.Command == 1 {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
+				fmt.Println("IPPackage arrived after rip.Command==1\n")
 				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
 				SendTriggerUpdates(srcIpAddr, 1, node, u)
 

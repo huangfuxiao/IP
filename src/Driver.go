@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./linklayer"
 	"./pkg"
 	"./runner"
 	"bufio"
@@ -136,10 +137,11 @@ func main() {
 	thisNode := readinLnx(fileName)
 	fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
 
+	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	go runner.Receive_thread()
+	go runner.Receive_thread(udp, thisNode)
 	go runner.Send_thread()
 	//main handler
 	//This is silly but works
@@ -153,7 +155,7 @@ func main() {
 		switch cmds[0] {
 		case "help":
 			printHelp()
-		case "interface":
+		case "interfaces":
 			thisNode.PrintInterfaces()
 		case "routes":
 			thisNode.PrintRoutes()

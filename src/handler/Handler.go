@@ -22,6 +22,9 @@ func SendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node, u linklayer
 	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: cost, Address: destIpAddr})
 	newRip.NumEntries = len(newRip.Entries)
 	for _, link := range node.InterfaceArray {
+		if link.Status == 0 {
+			continue
+		}
 		ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 		u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 		fmt.Printf("Trigger update RIP sent to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
@@ -84,6 +87,11 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(srcIpAddr, link.Dest) == 0 {
+			if link.Status == 0 {
+				fmt.Println("Interface is down. Packet has to be dropped\n")
+				return
+			}
+
 			//Arrive the interface
 			rip := ipv4.ConvertBytesToRIP(payLoad)
 
@@ -100,8 +108,14 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				newRip.NumEntries = 0
 				//put all of this node's RT's entries to RIP
 				for _, v := range node.RouteTable {
+
+					/* Implement poison reverse
+					Compare the learn from virIP to the RIP packege's destination
+					If learnFrom == RIP.Dest, modify the cost to be INFINITY
+					????????????????????????????????????????????????????????
+					*/
 					newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: v.Cost, Address: v.Dest})
-					newRip.NumEntries++
+
 				}
 
 				//send back RIP to src
@@ -126,7 +140,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				for _, entry := range rip.Entries {
 					value, ok := node.RouteTable[entry.Address]
 					if ok {
-						/*Implement poison reverse first*/
+						/*Check poison first*/
 						if (entry.Cost == 16) && (dstIpAddr == value.Next) {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
 							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)

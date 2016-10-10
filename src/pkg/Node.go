@@ -33,11 +33,27 @@ func (n *Node) PrintRoutes() {
 }
 
 func (n *Node) InterfacesDown(id int) {
+	if id >= len(n.InterfaceArray) {
+		fmt.Println("Unvalid id!\n")
+		return
+	}
 	n.InterfaceArray[id].Status = 0
+	src := n.InterfaceArray[id].Src
+	for k, v := range n.RouteTable {
+		if strings.Compare(src, v.Next) == 0 {
+			n.RouteTable[k] = Entry{Dest: v.Dest, Next: v.Next, Cost: 16}
+		}
+	}
 }
 
 func (n *Node) InterfacesUp(id int) {
+	if id >= len(n.InterfaceArray) {
+		fmt.Println("Unvalid id!\n")
+		return
+	}
 	n.InterfaceArray[id].Status = 1
+	src := n.InterfaceArray[id].Src
+	n.RouteTable[src] = Entry{Dest: src, Next: src, Cost: 0}
 }
 
 func (n *Node) PrepareAndSendPacket() {
@@ -52,5 +68,14 @@ func (n *Node) GetRemotePhysAddr(virIP string) (string, int) {
 	}
 	err := "error"
 	return err, -1
+}
 
+func (n *Node) GetLearnFrom(virIP string) (string, int) {
+	for _, link := range n.InterfaceArray {
+		if strings.Compare(virIP, link.Src) == 0 {
+			return link.Dest
+		}
+	}
+	err := "error"
+	return err, -1
 }

@@ -181,18 +181,31 @@ func main() {
 			if len(cmds) == 1 {
 				fmt.Println("invalid interface id")
 			} else {
-				id, _ := strconv.Atoi(cmds[1])
+				id, err := strconv.Atoi(cmds[1])
+				if err != nil {
+					fmt.Println("invalid interface id\n")
+					continue
+				}
 				thisNode.InterfacesDown(id)
 			}
 		case "up":
 			if len(cmds) == 1 {
 				fmt.Println("invalid interface id")
 			} else {
-				id, _ := strconv.Atoi(cmds[1])
+				id, err := strconv.Atoi(cmds[1])
+				if err != nil {
+					fmt.Println("invalid interface id\n")
+					continue
+				}
 				thisNode.InterfacesUp(id)
 			}
 		case "send":
-			thisNode.PrepareAndSendPacket()
+			if len(cmds) < 4 {
+				fmt.Println("invalid args")
+			} else {
+				thisNode.PrepareAndSendPacket(cmds, udp)
+			}
+
 		case "quit":
 			os.Exit(1)
 		default:

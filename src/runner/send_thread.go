@@ -5,6 +5,7 @@ import (
 	"../ipv4"
 	"../linklayer"
 	"../pkg"
+	"strings"
 	"time"
 )
 
@@ -27,7 +28,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 				????????????????????????????????????????????????????????
 				*/
 				learnFrom := node.GetLearnFrom(v.Next)
-				if string.Compare(v.Dest, v.Next) > 0 && string.Compare(link.Dest, learnFrom) == 0 && v.Cost != 16 {
+				if strings.Compare(v.Dest, v.Next) > 0 && strings.Compare(link.Dest, learnFrom) == 0 && v.Cost != 16 {
 					newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: 16, Address: v.Dest})
 				} else {
 					newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: v.Cost, Address: v.Dest})

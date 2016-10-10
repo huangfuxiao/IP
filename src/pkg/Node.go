@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Node struct {
@@ -45,7 +46,7 @@ func (n *Node) InterfacesDown(id int) {
 	src := n.InterfaceArray[id].Src
 	for k, v := range n.RouteTable {
 		if strings.Compare(src, v.Next) == 0 {
-			n.RouteTable[k] = Entry{Dest: v.Dest, Next: v.Next, Cost: 16}
+			n.RouteTable[k] = Entry{Dest: v.Dest, Next: v.Next, Cost: 16, Ttl: time.Now().Unix() + 12}
 		}
 	}
 }
@@ -57,7 +58,7 @@ func (n *Node) InterfacesUp(id int) {
 	}
 	n.InterfaceArray[id].Status = 1
 	src := n.InterfaceArray[id].Src
-	n.RouteTable[src] = Entry{Dest: src, Next: src, Cost: 0}
+	n.RouteTable[src] = Entry{Dest: src, Next: src, Cost: 0, Ttl: time.Now().Unix() + 12}
 }
 
 func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {

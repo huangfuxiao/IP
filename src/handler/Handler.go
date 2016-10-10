@@ -6,6 +6,7 @@ import (
 	"../pkg"
 	"fmt"
 	"strings"
+	"time"
 )
 
 //Convert RIP to IP Packet
@@ -16,15 +17,22 @@ func ConvertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage
 }
 
 //Send Trigger Updates using RIP to All of Node's Neighbors
-func SendTriggerUpdates(destIpAddr string, cost int, node *pkg.Node, u linklayer.UDPLink) {
-	var newRip ipv4.RIP
-	newRip.Command = 2
-	newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: cost, Address: destIpAddr})
-	newRip.NumEntries = len(newRip.Entries)
+func SendTriggerUpdates(destIpAddr string, route pkg.Entry, node *pkg.Node, u linklayer.UDPLink) {
+	learnFrom := node.GetLearnFrom(route.Next)
 	for _, link := range node.InterfaceArray {
 		if link.Status == 0 {
 			continue
 		}
+
+		var newRip ipv4.RIP
+		newRip.Command = 2
+		if learnFrom == link.Dest {
+			newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: 16, Address: destIpAddr})
+		} else {
+			newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: route.Cost, Address: destIpAddr})
+		}
+		newRip.NumEntries = len(newRip.Entries)
+
 		ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 		u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 		fmt.Printf("Trigger update RIP sent to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
@@ -100,9 +108,9 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 			if rip.Command == 1 {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
 				fmt.Println("IPPackage arrived after rip.Command==1\n")
-				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
+				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1, Ttl: time.Now().Unix() + 12}
 				//fmt.Println("1111111111111111111111111\n")
-				SendTriggerUpdates(srcIpAddr, 1, node, u)
+				SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 
 				//Then, put all of this node.RouteTable into RIP and send back
 				var newRip ipv4.RIP
@@ -131,8 +139,8 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				v, ok := node.RouteTable[srcIpAddr]
 				if ok {
 					if v.Cost > 1 {
-						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
-						SendTriggerUpdates(srcIpAddr, 1, node, u)
+						node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1, Ttl: time.Now().Unix() + 12}
+						SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 					}
 				}
 				/* Then, loop through all of the rip's entry
@@ -146,15 +154,16 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 						learnFrom := node.GetLearnFrom(value.Next)
 						if (entry.Cost == 16) && (learnFrom == srcIpAddr) && (entry.Address == value.Dest) && (value.Next != value.Dest) {
-							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
-							//SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
+							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16, Ttl: time.Now().Unix() + 12}
+							fmt.Println("111111111111111111111111")
+							//SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 						} else if (entry.Cost + 1) < value.Cost {
-							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
+							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
+							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 						}
 					} else {
-						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
-						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
+						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
+						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 					}
 				}
 				return

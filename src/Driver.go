@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Panic if catches an error
@@ -93,6 +94,7 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 		thisEntry.Cost = 0
 		thisEntry.Dest = thisLink.Src
 		thisEntry.Next = thisLink.Src
+		thisEntry.Ttl = time.Now().Unix() + 12
 		thisRT[thisLink.Src] = thisEntry
 	}
 
@@ -157,10 +159,11 @@ func main() {
 	initRIP(thisNode, udp)
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 
 	go runner.Receive_thread(udp, &thisNode)
 	go runner.Send_thread(&thisNode, udp)
+	go runner.Timeout_thread(&thisNode)
 	//main handler
 	//This is silly but works
 	for {

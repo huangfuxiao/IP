@@ -160,12 +160,21 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 						} else if (entry.Cost + 1) < value.Cost {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
 							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
+						} else {
+							dst := node.RouteTable[entry.Address].Dest
+							next := node.RouteTable[entry.Address].Next
+							cost := node.RouteTable[entry.Address].Cost
+							node.RouteTable[entry.Address] = pkg.Entry{Dest: dst, Next: next, Cost: cost, Ttl: time.Now().Unix() + 12}
 						}
 					} else {
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
 						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 					}
 				}
+
+				//xxxxxxxxxxxxxxxxxxx TIME OUT UPDATE TIMESTAMPXXXXXXXXXXXXXXXXXXXXXXXXX//
+				//XSFSFSDFSD//
+
 				return
 			} else {
 				fmt.Println("Unrecognized RIP protocol!\n")

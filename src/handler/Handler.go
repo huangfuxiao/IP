@@ -87,10 +87,6 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(srcIpAddr, link.Dest) == 0 {
-			if link.Status == 0 {
-				fmt.Println("Interface is down. Packet has to be dropped\n")
-				return
-			}
 
 			//Arrive the interface
 			if link.Status == 0 {
@@ -182,9 +178,10 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 	//Local interface check
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(dstIpAddr, link.Src) == 0 {
-			//fmt.Println("Local Arrived! ")
-			//Payload is not empty
-			if len(payLoad) == 0 {
+			if link.Status == 0 {
+				fmt.Println("Interface is down. Packet has to be dropped\n")
+				return
+			} else if len(payLoad) == 0 {
 				fmt.Println("But payload is empty.\n")
 				return
 			} else {

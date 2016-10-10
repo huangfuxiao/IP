@@ -4,5 +4,4 @@ type Entry struct {
 	Dest string
 	Next string
 	Cost int
-	From string
 }

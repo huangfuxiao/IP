@@ -143,13 +143,12 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 					value, ok := node.RouteTable[entry.Address]
 					if ok {
 						/*Check poison first*/
-						/*
-							if (entry.Cost == 16) && (dstIpAddr == value.Next) {
-								node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
-								SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
-							} else */
-						if (entry.Cost + 1) < value.Cost {
 
+						learnFrom := node.GetLearnFrom(value.Next)
+						if (entry.Cost == 16) && (learnFrom == srcIpAddr) && (entry.Address == value.Dest) && (value.Next != value.Dest) {
+							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
+							//SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
+						} else if (entry.Cost + 1) < value.Cost {
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
 							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
 						}

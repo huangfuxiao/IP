@@ -74,8 +74,9 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 }
 
 //IP protocol=0
-func RunDataHandler(ipPkt ipv4.IpPackage, node *pkg.Node) {
+func RunDataHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	data := ipv4.String(ipPkt)
+	fmt.Println("Driver Received Packet from ", u.Addr)
 	fmt.Println(data)
 }
 
@@ -100,6 +101,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
 				fmt.Println("IPPackage arrived after rip.Command==1\n")
 				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1}
+				//fmt.Println("1111111111111111111111111\n")
 				SendTriggerUpdates(srcIpAddr, 1, node, u)
 
 				//Then, put all of this node.RouteTable into RIP and send back
@@ -141,10 +143,13 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 					value, ok := node.RouteTable[entry.Address]
 					if ok {
 						/*Check poison first*/
-						if (entry.Cost == 16) && (dstIpAddr == value.Next) {
-							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
-							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
-						} else if (entry.Cost + 1) < value.Cost {
+						/*
+							if (entry.Cost == 16) && (dstIpAddr == value.Next) {
+								node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16}
+								SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
+							} else */
+						if (entry.Cost + 1) < value.Cost {
+
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1}
 							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address].Cost, node, u)
 						}
@@ -174,6 +179,11 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 		return
 	}
 
+	if !CheckCsum(ipPkt) {
+		fmt.Println("Checksum error\n")
+		return
+	}
+
 	//Check IP destination
 	//Local interface check
 	for _, link := range node.InterfaceArray {
@@ -188,7 +198,7 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 				//fmt.Println("Payload is not empty. Start handling!\n")
 				switch ipPkt.IpHeader.Protocol {
 				case 0:
-					RunDataHandler(ipPkt, node)
+					RunDataHandler(ipPkt, node, u)
 					return
 				case 200:
 					RunRIPHandler(ipPkt, node, u)
@@ -201,4 +211,11 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 	//Forward IP package to upper layer
 	ForwardIpPackage(ipPkt, node, u)
 	return
+}
+
+func CheckCsum(ipp ipv4.IpPackage) bool {
+	sum := ipp.IpHeader.Checksum
+	ipp.IpHeader.Checksum = 0
+	temp := ipv4.Csum(ipp.IpHeader)
+	return sum == temp
 }

@@ -1,6 +1,7 @@
 package ipv4
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 )
@@ -22,6 +23,7 @@ func BuildIpPacket(payload []byte, protocol int, src string, dest string) IpPack
 		Dst:      net.ParseIP(dest),
 		Options:  []byte{},
 	}
+	header.Checksum = Csum(header)
 	return IpPackage{header, payload}
 }
 
@@ -48,4 +50,21 @@ func BufferToIpPkg(buffer []byte) IpPackage {
 	}
 	p := buffer[20:]
 	return IpPackage{*h, p}
+}
+
+func Csum(header Header) int {
+	buf, _ := header.Marshal()
+	l := len(buf)
+	sum := uint32(0)
+	for i := 0; i < l-1; i += 2 {
+		sum += uint32(binary.BigEndian.Uint16(buf[i : i+2]))
+
+	}
+	if l%2 == 1 {
+		sum += uint32(buf[l])
+	}
+	sum = (sum >> 16) + (sum & 0xffff)
+	sum += (sum >> 16)
+	ret := uint16(0xffffffff ^ sum)
+	return int(ret)
 }

@@ -70,12 +70,12 @@ func (n *Node) GetRemotePhysAddr(virIP string) (string, int) {
 	return err, -1
 }
 
-func (n *Node) GetLearnFrom(virIP string) (string, int) {
+func (n *Node) GetLearnFrom(virIP string) string {
 	for _, link := range n.InterfaceArray {
 		if strings.Compare(virIP, link.Src) == 0 {
 			return link.Dest
 		}
 	}
 	err := "error"
-	return err, -1
+	return err
 }

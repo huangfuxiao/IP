@@ -107,10 +107,10 @@ func printHelp() {
 	fmt.Println("******************************")
 	fmt.Println("help\t\t\t\tHelp Printing")
 	fmt.Println("interfaces\t\t\tInterface Information")
-	fmt.Println("routes\t\t\tRouting table")
-	fmt.Println("down <id>\t\t\t\tBring one interface down")
+	fmt.Println("routes\t\t\t\tRouting table")
+	fmt.Println("down <id>\t\t\tBring one interface down")
 	fmt.Println("up <id>\t\t\t\tBring one interface up")
-	fmt.Println("send <dst_ip> <prot> <payload>\t\t\t\tSend the message to a virtual IP")
+	fmt.Println("send <dst_ip> <prot> <payload>\tSend the message to a virtual IP")
 	fmt.Println("quit\t\t\t\tQUIT")
 }
 

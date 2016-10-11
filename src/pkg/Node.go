@@ -29,10 +29,11 @@ func (n *Node) PrintInterfaces() {
 func (n *Node) PrintRoutes() {
 	//fmt.Println("Here is the Rounting Table: \n")
 	fmt.Println("dst\t\tsrc\t\tcost")
-	for k, v := range n.RouteTable {
-		if len(k) < 0 {
-			fmt.Println("The rounting table currently has no routes!\n")
+	for _, v := range n.RouteTable {
+		if v.Cost >= 16 {
+			continue
 		}
+
 		fmt.Printf("%s\t%s\t%d\n", v.Dest, v.Next, v.Cost)
 	}
 }
@@ -79,20 +80,23 @@ func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {
 			fmt.Println("invalid args\n")
 			return
 		}
+		payLoad := cmds[3]
 
-		//Loop through all interfaces to send
-		for _, link := range n.InterfaceArray {
-			if strings.Compare(dest, link.Dest) == 0 {
-				if link.Status == 0 {
+		//Find the interface by checking node.RouteTable
+		v, ok := n.RouteTable[dest]
+		if ok {
+			for _, link := range n.InterfaceArray {
+				if strings.Compare(v.Next, link.Src) == 0 {
+					if link.Status == 0 {
+						return
+					}
+
+					ipPkt := ipv4.BuildIpPacket([]byte(payLoad), id, link.Src, dest)
+					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 					return
 				}
-				payLoad := cmds[3]
-				ipPkt := ipv4.BuildIpPacket([]byte(payLoad), id, link.Src, link.Dest)
-				u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-				fmt.Println(ipPkt)
-
-				return
 			}
+
 		}
 
 	}

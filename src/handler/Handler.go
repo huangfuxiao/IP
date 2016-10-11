@@ -70,6 +70,8 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 
 					//Forward ip packet to next node
 					ipPkt.IpHeader.TTL--
+					ipPkt.IpHeader.Checksum = 0
+					ipPkt.IpHeader.Checksum = ipv4.Csum(ipPkt.IpHeader)
 					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 					fmt.Printf("Node can get through this interface: %s to %s with cost: %d\n", v.Next, v.Dest, v.Cost)
 					return
@@ -154,26 +156,31 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 						learnFrom := node.GetLearnFrom(value.Next)
 						if (entry.Cost == 16) && (learnFrom == srcIpAddr) && (entry.Address == value.Dest) && (value.Next != value.Dest) {
-							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16, Ttl: time.Now().Unix() + 12}
-							fmt.Println("111111111111111111111111")
-							//SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
+							time := node.RouteTable[entry.Address].Ttl
+							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: 16, Ttl: time}
+							//fmt.Println("111111111111111111111111")
+							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 						} else if (entry.Cost + 1) < value.Cost {
+							//fmt.Println("222222222222")
+							//fmt.Println(node.RouteTable[entry.Address])
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
 							SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
-						} else {
+						} else if (entry.Cost+1) == value.Cost && (learnFrom == srcIpAddr) && (entry.Address == value.Dest) && (value.Next != value.Dest) {
 							dst := node.RouteTable[entry.Address].Dest
 							next := node.RouteTable[entry.Address].Next
 							cost := node.RouteTable[entry.Address].Cost
+							//fmt.Println("3333333333333")
+							//fmt.Println(node.RouteTable[entry.Address])
 							node.RouteTable[entry.Address] = pkg.Entry{Dest: dst, Next: next, Cost: cost, Ttl: time.Now().Unix() + 12}
 						}
 					} else {
+						//fmt.Println(node.RouteTable[entry.Address])
+						//fmt.Println("4444444444444")
+
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
 						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 					}
 				}
-
-				//xxxxxxxxxxxxxxxxxxx TIME OUT UPDATE TIMESTAMPXXXXXXXXXXXXXXXXXXXXXXXXX//
-				//XSFSFSDFSD//
 
 				return
 			} else {

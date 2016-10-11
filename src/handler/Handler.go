@@ -6,8 +6,11 @@ import (
 	"../pkg"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
+
+var mutex = &sync.Mutex{}
 
 //Convert RIP to IP Packet
 func ConvertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
@@ -44,6 +47,7 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 
 	//Loop through node.RouteTable, and forward to upper node
+	mutex.Lock()
 	for k, v := range node.RouteTable {
 		if len(k) < 0 {
 			fmt.Println("The rounting table currently has no routes!\n")
@@ -79,6 +83,7 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 			}
 		}
 	}
+	mutex.Unlock()
 	fmt.Printf("Cannot find a interface in this node's routing table. Packet has to be dropped\n")
 	return
 }
@@ -114,6 +119,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				newRip.Command = 2
 				newRip.NumEntries = 0
 				//put all of this node's RT's entries to RIP
+				mutex.Lock()
 				for _, v := range node.RouteTable {
 					if newRip.NumEntries == 64 {
 						ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
@@ -126,6 +132,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 					newRip.NumEntries++
 
 				}
+				mutex.Unlock()
 
 				//send back RIP to src
 				ipPkt := ConvertRipToIpPackage(newRip, link.Src, srcIpAddr)
@@ -140,6 +147,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 			} else if rip.Command == 2 {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
+				mutex.Lock()
 				v, ok := node.RouteTable[srcIpAddr]
 				if ok {
 					if v.Cost > 1 {
@@ -147,11 +155,13 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 						SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 					}
 				}
+				mutex.Unlock()
 				/* Then, loop through all of the rip's entry
 				   Compare if the RIPEntry's Address already on this node.RouteTable
 				   If so, compare the cost
 				*/
 				for _, entry := range rip.Entries {
+					mutex.Lock()
 					value, ok := node.RouteTable[entry.Address]
 					if ok {
 						/*Check poison first*/
@@ -182,6 +192,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 						node.RouteTable[entry.Address] = pkg.Entry{Dest: entry.Address, Next: dstIpAddr, Cost: entry.Cost + 1, Ttl: time.Now().Unix() + 12}
 						SendTriggerUpdates(entry.Address, node.RouteTable[entry.Address], node, u)
 					}
+					mutex.Unlock()
 				}
 
 				return

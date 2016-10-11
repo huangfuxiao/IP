@@ -7,8 +7,11 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+var mutex = &sync.Mutex{}
 
 type Node struct {
 	LocalAddr      string
@@ -45,11 +48,13 @@ func (n *Node) InterfacesDown(id int) {
 	}
 	n.InterfaceArray[id].Status = 0
 	src := n.InterfaceArray[id].Src
+	mutex.Lock()
 	for k, v := range n.RouteTable {
 		if strings.Compare(src, v.Next) == 0 {
 			n.RouteTable[k] = Entry{Dest: v.Dest, Next: v.Next, Cost: 16, Ttl: time.Now().Unix() + 12}
 		}
 	}
+	mutex.Unlock()
 }
 
 func (n *Node) InterfacesUp(id int) {
@@ -59,7 +64,9 @@ func (n *Node) InterfacesUp(id int) {
 	}
 	n.InterfaceArray[id].Status = 1
 	src := n.InterfaceArray[id].Src
+	mutex.Lock()
 	n.RouteTable[src] = Entry{Dest: src, Next: src, Cost: 0, Ttl: time.Now().Unix() + 12}
+	mutex.Unlock()
 }
 
 func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {
@@ -83,7 +90,9 @@ func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {
 		payLoad := cmds[3]
 
 		//Find the interface by checking node.RouteTable
+		mutex.Lock()
 		v, ok := n.RouteTable[dest]
+		mutex.Unlock()
 		if ok {
 			for _, link := range n.InterfaceArray {
 				if strings.Compare(v.Next, link.Src) == 0 {

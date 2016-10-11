@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var mutex = &sync.Mutex{}
-
 //Convert RIP to IP Packet
 func ConvertRipToIpPackage(rip ipv4.RIP, src string, dest string) ipv4.IpPackage {
 	b := ipv4.ConvertRipToBytes(rip)
@@ -38,19 +36,20 @@ func SendTriggerUpdates(destIpAddr string, route pkg.Entry, node *pkg.Node, u li
 
 		ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 		u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-		fmt.Printf("Trigger update RIP sent to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
+		//fmt.Printf("Trigger update RIP sent to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
 	}
 }
 
 //IP is not locally arrived
-func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
+func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 
 	//Loop through node.RouteTable, and forward to upper node
-	mutex.Lock()
+	mutex.RLock()
 	for k, v := range node.RouteTable {
 		if len(k) < 0 {
 			fmt.Println("The rounting table currently has no routes!\n")
+			mutex.RUnlock()
 			return
 		}
 		//Destination matches one on this Node's Rounting Table
@@ -62,13 +61,15 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 					//Arrives the target interface
 					//Check status first
 					if link.Status == 0 {
-						fmt.Println("Interface is down. Packet has to be dropped\n")
+						mutex.RUnlock()
+						//fmt.Println("Interface is down. Packet has to be dropped\n")
 						return
 					}
 
 					//Check cost is not infinity
 					if v.Cost >= 16 {
-						fmt.Println("Inifinity loop. Packet has to be dropped\n")
+						mutex.RUnlock()
+						//fmt.Println("Inifinity loop. Packet has to be dropped\n")
 						return
 					}
 
@@ -77,26 +78,27 @@ func ForwardIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 					ipPkt.IpHeader.Checksum = 0
 					ipPkt.IpHeader.Checksum = ipv4.Csum(ipPkt.IpHeader)
 					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-					fmt.Printf("Node can get through this interface: %s to %s with cost: %d\n", v.Next, v.Dest, v.Cost)
+					mutex.RUnlock()
+					//fmt.Printf("Node can get through this interface: %s to %s with cost: %d\n", v.Next, v.Dest, v.Cost)
 					return
 				}
 			}
 		}
 	}
-	mutex.Unlock()
-	fmt.Printf("Cannot find a interface in this node's routing table. Packet has to be dropped\n")
+	mutex.RUnlock()
+	//fmt.Printf("Cannot find a interface in this node's routing table. Packet has to be dropped\n")
 	return
 }
 
 //IP protocol=0
 func RunDataHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	data := ipv4.String(ipPkt)
-	fmt.Println("Driver Received Packet from ", u.Addr)
+	fmt.Println("Driver Received Packet")
 	fmt.Println(data)
 }
 
 //IP protocol=200
-func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
+func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
 	payLoad := ipPkt.Payload
@@ -106,7 +108,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 			//Arrive the interface
 			if link.Status == 0 {
-				fmt.Println("Interface is down. Packet has to be dropped\n")
+				//fmt.Println("Interface is down. Packet has to be dropped\n")
 				return
 			}
 			rip := ipv4.ConvertBytesToRIP(payLoad)
@@ -119,8 +121,9 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				newRip.Command = 2
 				newRip.NumEntries = 0
 				//put all of this node's RT's entries to RIP
-				mutex.Lock()
+				mutex.RLock()
 				for _, v := range node.RouteTable {
+
 					if newRip.NumEntries == 64 {
 						ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 						u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
@@ -132,22 +135,20 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 					newRip.NumEntries++
 
 				}
-				mutex.Unlock()
-
+				mutex.RUnlock()
 				//send back RIP to src
 				ipPkt := ConvertRipToIpPackage(newRip, link.Src, srcIpAddr)
 				u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-				fmt.Printf("RIP response sent back to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
+				//fmt.Printf("RIP response sent back to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
 
 				/* Then, insert this neighbor to the node.RouteTable with cost = 1 */
-				fmt.Println("IPPackage arrived after rip.Command==1\n")
+				//fmt.Println("IPPackage arrived after rip.Command==1\n")
 				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1, Ttl: time.Now().Unix() + 12}
 				SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 				return
 
 			} else if rip.Command == 2 {
 				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
-				mutex.Lock()
 				v, ok := node.RouteTable[srcIpAddr]
 				if ok {
 					if v.Cost > 1 {
@@ -155,14 +156,13 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 						SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 					}
 				}
-				mutex.Unlock()
 				/* Then, loop through all of the rip's entry
 				   Compare if the RIPEntry's Address already on this node.RouteTable
 				   If so, compare the cost
 				*/
 				for _, entry := range rip.Entries {
-					mutex.Lock()
 					value, ok := node.RouteTable[entry.Address]
+					mutex.Lock()
 					if ok {
 						/*Check poison first*/
 
@@ -205,7 +205,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 	return
 }
 
-func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
+func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	//Open the IP package
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	payLoad := ipPkt.Payload
@@ -226,10 +226,10 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 	for _, link := range node.InterfaceArray {
 		if strings.Compare(dstIpAddr, link.Src) == 0 {
 			if link.Status == 0 {
-				fmt.Println("Interface is down. Packet has to be dropped\n")
+				//fmt.Println("Interface is down. Packet has to be dropped\n")
 				return
 			} else if len(payLoad) == 0 {
-				fmt.Println("But payload is empty.\n")
+				//fmt.Println("But payload is empty.\n")
 				return
 			} else {
 				//fmt.Println("Payload is not empty. Start handling!\n")
@@ -238,7 +238,7 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 					RunDataHandler(ipPkt, node, u)
 					return
 				case 200:
-					RunRIPHandler(ipPkt, node, u)
+					RunRIPHandler(ipPkt, node, u, mutex)
 					return
 				}
 			}
@@ -246,7 +246,7 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) 
 	}
 
 	//Forward IP package to upper layer
-	ForwardIpPackage(ipPkt, node, u)
+	ForwardIpPackage(ipPkt, node, u, mutex)
 	return
 }
 

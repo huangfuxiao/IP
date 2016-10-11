@@ -11,7 +11,7 @@ import (
 // Store the UDP socket
 type UDPLink struct {
 	socket *net.UDPConn
-	Addr   *net.UDPAddr
+	//Addr   *net.UDPAddr
 }
 
 // Check the error message
@@ -29,7 +29,7 @@ func InitUDP(addr string, port int) UDPLink {
 	CheckError(err)
 	socket, err := net.ListenUDP("udp", udpAddr)
 	CheckError(err)
-	return UDPLink{socket, nil}
+	return UDPLink{socket}
 }
 
 // Convert an IpPackage to a buffer and send it through UDP to reAddr:rePort
@@ -50,8 +50,8 @@ func (l *UDPLink) Send(ipp ipv4.IpPackage, reAddr string, rePort int) {
 func (l *UDPLink) Receive() ipv4.IpPackage {
 	buf := make([]byte, 1400)
 	for {
-		n, addr, err := l.socket.ReadFromUDP(buf)
-		l.Addr = addr
+		n, _, err := l.socket.ReadFromUDP(buf)
+		//l.Addr = addr
 		if err != nil {
 			fmt.Println("Error: ", err)
 		}

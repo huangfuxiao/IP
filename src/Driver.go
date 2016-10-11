@@ -64,8 +64,8 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 	localInfor = strings.Split(lines[0], ":")
 	p, err := strconv.Atoi(strings.Trim(localInfor[1], " "))
 	perror(err)
-	fmt.Printf("local's phyAddr: %s\n", localInfor[0])
-	fmt.Printf("local's port number: %d\n", p)
+	//fmt.Printf("local's phyAddr: %s\n", localInfor[0])
+	//fmt.Printf("local's port number: %d\n", p)
 	thisNode.LocalAddr = localInfor[0]
 	thisNode.Port = p
 
@@ -82,8 +82,8 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 		remoteAddr = strings.Split(linkInfor[0], ":")
 		q, err := strconv.Atoi(strings.Trim(remoteAddr[1], " "))
 		perror(err)
-		fmt.Printf("remote's phyAddr: %s\n", remoteAddr[0])
-		fmt.Printf("remote's port number: %d\n", q)
+		//fmt.Printf("remote's phyAddr: %s\n", remoteAddr[0])
+		//fmt.Printf("remote's port number: %d\n", q)
 		thisLink.RemoteAddr = remoteAddr[0]
 		thisLink.RemotePort = q
 
@@ -98,16 +98,16 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 		thisRT[thisLink.Src] = thisEntry
 	}
 
-	fmt.Println(thisRT)
+	//fmt.Println(thisRT)
 	thisNode.RouteTable = thisRT
 	return thisNode
 }
 
 func printHelp() {
 	fmt.Println("******************************")
-	fmt.Println("help\t\t\t\tHelp Printing")
-	fmt.Println("interfaces\t\t\tInterface Information")
-	fmt.Println("routes\t\t\t\tRouting table")
+	fmt.Println("help\t\t\t\t-Help Printing")
+	fmt.Println("interfaces\t\t\t-Interface Information")
+	fmt.Println("routes\t\t\t\t-Routing table")
 	fmt.Println("down <id>\t\t\tBring one interface down")
 	fmt.Println("up <id>\t\t\t\tBring one interface up")
 	fmt.Println("send <dst_ip> <prot> <payload>\tSend the message to a virtual IP")
@@ -144,7 +144,7 @@ func main() {
 	fmt.Println(nodeEx)*/
 
 	fileName := os.Args[1]
-	fmt.Printf("Args' length: %d \n", len(os.Args))
+	//fmt.Printf("Args' length: %d \n", len(os.Args))
 	if len(os.Args) < 2 {
 		println("ERROR: please input a link file")
 		os.Exit(1)
@@ -152,24 +152,26 @@ func main() {
 	fmt.Println(fileName)
 
 	thisNode := readinLnx(fileName)
-	fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
+	//fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
 
 	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
 
 	initRIP(thisNode, udp)
 
+	var mutex = &sync.RWMutex{}
+
 	var wg sync.WaitGroup
 	wg.Add(4)
 
-	go runner.Receive_thread(udp, &thisNode)
-	go runner.Send_thread(&thisNode, udp)
-	go runner.Timeout_thread(&thisNode)
+	go runner.Receive_thread(udp, &thisNode, mutex)
+	go runner.Send_thread(&thisNode, udp, mutex)
+	go runner.Timeout_thread(&thisNode, mutex)
 	//main handler
 	//This is silly but works
 	for {
 		fmt.Println(">")
 		reader := bufio.NewReader(os.Stdin)
-		fmt.Println("Enter text: ")
+		//fmt.Println("Enter text: ")
 		text, _ := reader.ReadString('\n')
 		cmds := strings.Fields(text)
 
@@ -189,7 +191,7 @@ func main() {
 					fmt.Println("invalid interface id\n")
 					continue
 				}
-				thisNode.InterfacesDown(id)
+				thisNode.InterfacesDown(id, mutex)
 			}
 		case "up":
 			if len(cmds) == 1 {
@@ -200,13 +202,13 @@ func main() {
 					fmt.Println("invalid interface id\n")
 					continue
 				}
-				thisNode.InterfacesUp(id)
+				thisNode.InterfacesUp(id, mutex)
 			}
 		case "send":
 			if len(cmds) < 4 {
 				fmt.Println("invalid args")
 			} else {
-				thisNode.PrepareAndSendPacket(cmds, udp)
+				thisNode.PrepareAndSendPacket(cmds, udp, mutex)
 			}
 
 		case "quit":

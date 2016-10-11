@@ -11,9 +11,7 @@ import (
 	"time"
 )
 
-var mutex = &sync.Mutex{}
-
-func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
+func Send_thread(node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	for {
 		//Loop through interfaces and send to all neighbors
 		for _, link := range node.InterfaceArray {
@@ -25,7 +23,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 			var newRip ipv4.RIP
 			newRip.Command = 2
 			newRip.NumEntries = 0
-			mutex.Lock()
+			mutex.RLock()
 			for _, v := range node.RouteTable {
 				/* Implement poison reverse
 				Compare the learn from virIP to the RIP packege's destination
@@ -38,6 +36,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 					newRip.NumEntries = 0
 					newRip.Entries = nil
 				}
+
 				learnFrom := node.GetLearnFrom(v.Next)
 				if learnFrom == "error" {
 					fmt.Println("ERROR in learn from")
@@ -51,7 +50,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 
 				newRip.NumEntries++
 			}
-			mutex.Unlock()
+			mutex.RUnlock()
 
 			ipPkt := handler.ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 			u.Send(ipPkt, link.RemoteAddr, link.RemotePort)

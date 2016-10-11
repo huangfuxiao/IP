@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-var mutex = &sync.Mutex{}
-
 type Node struct {
 	LocalAddr      string
 	Port           int
@@ -32,6 +30,7 @@ func (n *Node) PrintInterfaces() {
 func (n *Node) PrintRoutes() {
 	//fmt.Println("Here is the Rounting Table: \n")
 	fmt.Println("dst\t\tsrc\t\tcost")
+
 	for _, v := range n.RouteTable {
 		if v.Cost >= 16 {
 			continue
@@ -41,23 +40,23 @@ func (n *Node) PrintRoutes() {
 	}
 }
 
-func (n *Node) InterfacesDown(id int) {
+func (n *Node) InterfacesDown(id int, mutex *sync.RWMutex) {
 	if id >= len(n.InterfaceArray) {
 		fmt.Println("invalid interface id\n")
 		return
 	}
 	n.InterfaceArray[id].Status = 0
 	src := n.InterfaceArray[id].Src
-	mutex.Lock()
 	for k, v := range n.RouteTable {
 		if strings.Compare(src, v.Next) == 0 {
+			mutex.Lock()
 			n.RouteTable[k] = Entry{Dest: v.Dest, Next: v.Next, Cost: 16, Ttl: time.Now().Unix() + 12}
+			mutex.Unlock()
 		}
 	}
-	mutex.Unlock()
 }
 
-func (n *Node) InterfacesUp(id int) {
+func (n *Node) InterfacesUp(id int, mutex *sync.RWMutex) {
 	if id >= len(n.InterfaceArray) {
 		fmt.Println("invalid interface id\n")
 		return
@@ -69,7 +68,7 @@ func (n *Node) InterfacesUp(id int) {
 	mutex.Unlock()
 }
 
-func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {
+func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	//Check length of cmds
 	if len(cmds) < 4 {
 		fmt.Println("invalid args\n")
@@ -90,9 +89,9 @@ func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink) {
 		payLoad := cmds[3]
 
 		//Find the interface by checking node.RouteTable
-		mutex.Lock()
+		mutex.RLock()
 		v, ok := n.RouteTable[dest]
-		mutex.Unlock()
+		mutex.RUnlock()
 		if ok {
 			for _, link := range n.InterfaceArray {
 				if strings.Compare(v.Next, link.Src) == 0 {

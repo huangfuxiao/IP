@@ -108,25 +108,22 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 
 			//RIP Request
 			if rip.Command == 1 {
-				/* First, insert this neighbor to the node.RouteTable with cost = 1 */
-				fmt.Println("IPPackage arrived after rip.Command==1\n")
-				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1, Ttl: time.Now().Unix() + 12}
-				//fmt.Println("1111111111111111111111111\n")
-				SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 
-				//Then, put all of this node.RouteTable into RIP and send back
+				//First, put all of this node.RouteTable into RIP and send back
 				var newRip ipv4.RIP
 				newRip.Command = 2
 				newRip.NumEntries = 0
 				//put all of this node's RT's entries to RIP
 				for _, v := range node.RouteTable {
+					if newRip.NumEntries == 64 {
+						ipPkt := ConvertRipToIpPackage(newRip, link.Src, link.Dest)
+						u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
+						newRip.NumEntries = 0
+						newRip.Entries = nil
+					}
 
-					/* Implement poison reverse
-					Compare the learn from virIP to the RIP packege's destination
-					If learnFrom == RIP.Dest, modify the cost to be INFINITY
-					????????????????????????????????????????????????????????
-					*/
 					newRip.Entries = append(newRip.Entries, ipv4.RIPEntry{Cost: v.Cost, Address: v.Dest})
+					newRip.NumEntries++
 
 				}
 
@@ -134,6 +131,11 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink) {
 				ipPkt := ConvertRipToIpPackage(newRip, link.Src, srcIpAddr)
 				u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 				fmt.Printf("RIP response sent back to this address: %s %d \n", link.RemoteAddr, link.RemotePort)
+
+				/* Then, insert this neighbor to the node.RouteTable with cost = 1 */
+				fmt.Println("IPPackage arrived after rip.Command==1\n")
+				node.RouteTable[srcIpAddr] = pkg.Entry{Dest: srcIpAddr, Next: dstIpAddr, Cost: 1, Ttl: time.Now().Unix() + 12}
+				SendTriggerUpdates(srcIpAddr, node.RouteTable[srcIpAddr], node, u)
 				return
 
 			} else if rip.Command == 2 {

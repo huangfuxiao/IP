@@ -7,8 +7,11 @@ import (
 	"../pkg"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
+
+var mutex = &sync.Mutex{}
 
 func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 	for {
@@ -22,6 +25,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 			var newRip ipv4.RIP
 			newRip.Command = 2
 			newRip.NumEntries = 0
+			mutex.Lock()
 			for _, v := range node.RouteTable {
 				/* Implement poison reverse
 				Compare the learn from virIP to the RIP packege's destination
@@ -41,6 +45,7 @@ func Send_thread(node *pkg.Node, u linklayer.UDPLink) {
 
 				newRip.NumEntries++
 			}
+			mutex.Unlock()
 
 			ipPkt := handler.ConvertRipToIpPackage(newRip, link.Src, link.Dest)
 			u.Send(ipPkt, link.RemoteAddr, link.RemotePort)

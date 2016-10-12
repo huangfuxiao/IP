@@ -1,14 +1,18 @@
 #f16-ypi1-bli12
 Project: IP
+
 Name: Yiwei Pi/ Bingbing Li
+
 Login: ypi1 / bli12
+
 Language: Go
 
 
 ================================================================================================================
                                                  DESIGN
 ================================================================================================================
-1. Node Interface
+**1. Node Interface**
+
     Structures:
 	    Node:
 	    	LocalAddr 		string
@@ -42,8 +46,9 @@ Language: Go
 	    Prepare an IP Package and send the input message to a specified virtual ip address;
 
 	        
-2. Link Layer
-    Structures:
+**2. Link Layer**
+
+    Structures: 
 	    UDPLink:
 	    	socket *net.UDPConn
 
@@ -58,7 +63,8 @@ Language: Go
 	    Receive data from socket, and convert to IP Package.
 
 
-3. IP Handler
+**3. IP Handler**
+
 	Functions:
         -- HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex)
         -- CheckCsum(ipp ipv4.IpPackage) bool
@@ -73,7 +79,8 @@ Language: Go
 	    Otherwise, the handler forward the IP Package by looking up a next hop destination in the route table and send.
 	        	    	        
 
-4. IP
+**4. IP**
+
 	Structures:
 	    IpPackage:
 	    	IpHeader Header
@@ -92,20 +99,23 @@ Language: Go
 	    Calculate check sum.
 
 
-5. Threads
+**5. Threads**
+
     -- User input thread(main)
     -- Sending thread: keep sending out the RIP package (node's current routes) to its neighbors every 5s
     -- Receiving thread: keep receiving any data arrived through UDP connection; convert the data to IP Package and call IP Handler
     -- Timeout thread: Check the node's routes and modify expired routes to have a INFINITY cost
 
 
-6. Lock: 
+**6. Lock**
+
 	-- Construct a mutex RWLock when starting a new node
     -- Every time when looking up a route in the route table: read lock/unlock (Read lock)
     -- Every time when modifying a routes in the route table: lock/unlock (Write lock)
 
 
-7. Time Out:
+**7. Time Out:**
+
     -- Every time when adding or modifying a route in the route table, initialize the route's Ttl to be current time + 12s
     -- Every 5s, the time out thread loop through all routes in current route table and check if any route's Ttl < current time:
        If so, that means the route hasn't been touched during the past 12s;
@@ -116,6 +126,7 @@ Language: Go
                                                  ROUTING ALGORITHM
 ================================================================================================================
 Structures:
+
 	RIP:
 		Command    int    //command: 1 - request, 2 - response
 		NumEntries int
@@ -125,10 +136,12 @@ Structures:
 		Address    string	
 
 Functions:
+
 	-- RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 	-- SendTriggerUpdates(destIpAddr string, route pkg.Entry, node *pkg.Node, u linklayer.UDPLink)
 
 Description:
+
 	1. When a node is on, it first send RIP request to all its neighbors;
     2. If it receives a RIP package with command=1 from its direct neighbor:
     	-- First, it will wrap all of its current routes and send back to its neighbor;
@@ -151,6 +164,7 @@ Description:
 		           Send trigger updates.
 
 Split Horizon with Poison Reverse:
+
     This is implemented in both the 5s periodic updates(sending thread) and trigger updates;
     Loop through all RIP entry that will be sent to a remote IP address through a route;
     Check whether the knowledge of RIP entry is learned from the route's remote IP address;

@@ -11,7 +11,7 @@ Language: Go
 ================================================================================================================
                                                  DESIGN
 ================================================================================================================
-**1. Node Interface**
+**1. Node Interface:**
 
     Structures:
 	    Node:
@@ -46,7 +46,7 @@ Language: Go
 	    Prepare an IP Package and send the input message to a specified virtual ip address;
 
 	        
-**2. Link Layer**
+**2. Link Layer:**
 
     Structures: 
 	    UDPLink:
@@ -63,7 +63,7 @@ Language: Go
 	    Receive data from socket, and convert to IP Package.
 
 
-**3. IP Handler**
+**3. IP Handler:**
 
 	Functions:
         -- HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex)
@@ -79,7 +79,7 @@ Language: Go
 	    Otherwise, the handler forward the IP Package by looking up a next hop destination in the route table and send.
 	        	    	        
 
-**4. IP**
+**4. IP:**
 
 	Structures:
 	    IpPackage:
@@ -99,7 +99,7 @@ Language: Go
 	    Calculate check sum.
 
 
-**5. Threads**
+**5. Threads:**
 
     -- User input thread(main)
     -- Sending thread: keep sending out the RIP package (node's current routes) to its neighbors every 5s
@@ -107,7 +107,7 @@ Language: Go
     -- Timeout thread: Check the node's routes and modify expired routes to have a INFINITY cost
 
 
-**6. Lock**
+**6. Lock:**
 
 	-- Construct a mutex RWLock when starting a new node
     -- Every time when looking up a route in the route table: read lock/unlock (Read lock)
@@ -125,7 +125,7 @@ Language: Go
 ================================================================================================================
                                                  ROUTING ALGORITHM
 ================================================================================================================
-Structures:
+**Structures:**
 
 	RIP:
 		Command    int    //command: 1 - request, 2 - response
@@ -135,12 +135,12 @@ Structures:
 	    Cost       int
 		Address    string	
 
-Functions:
+**Functions:**
 
 	-- RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink)
 	-- SendTriggerUpdates(destIpAddr string, route pkg.Entry, node *pkg.Node, u linklayer.UDPLink)
 
-Description:
+**Description:**
 
 	1. When a node is on, it first send RIP request to all its neighbors;
     2. If it receives a RIP package with command=1 from its direct neighbor:
@@ -163,7 +163,7 @@ Description:
 		           Add a new routes to entry's address with cost = entry's cost + 1 into the route table;
 		           Send trigger updates.
 
-Split Horizon with Poison Reverse:
+**Split Horizon with Poison Reverse:**
 
     This is implemented in both the 5s periodic updates(sending thread) and trigger updates;
     Loop through all RIP entry that will be sent to a remote IP address through a route;

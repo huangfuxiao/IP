@@ -108,10 +108,10 @@ func printHelp() {
 	fmt.Println("help\t\t\t\t-Help Printing")
 	fmt.Println("interfaces\t\t\t-Interface Information")
 	fmt.Println("routes\t\t\t\t-Routing table")
-	fmt.Println("down <id>\t\t\tBring one interface down")
-	fmt.Println("up <id>\t\t\t\tBring one interface up")
-	fmt.Println("send <dst_ip> <prot> <payload>\tSend the message to a virtual IP")
-	fmt.Println("quit\t\t\t\tQUIT")
+	fmt.Println("down <id>\t\t\t-Bring one interface down")
+	fmt.Println("up <id>\t\t\t\t-Bring one interface up")
+	fmt.Println("send <dst_ip> <prot> <payload>\t-Send the message to a virtual IP")
+	fmt.Println("quit\t\t\t\t-QUIT")
 }
 
 func initRIP(node pkg.Node, udp linklayer.UDPLink) {

@@ -11,7 +11,7 @@ Language: Go
 ================================================================================================================
                                                  DESIGN
 ================================================================================================================
-#### 1. Node Interface:
+## 1. Node Interface:
 
 #### Structures:
 	    Node:
@@ -46,7 +46,7 @@ Interface down/up, and update the routing table;
 Prepare an IP Package and send the input message to a specified virtual ip address;
 
 	        
-**2. Link Layer:**
+## 2. Link Layer:
 
 #### Structures: 
 	    UDPLink:
@@ -63,7 +63,7 @@ Send IP Package to the specified remote IP address;
 Receive data from socket, and convert to IP Package.
 
 
-**3. IP Handler:**
+## 3. IP Handler:
 
 #### Functions:
 * HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex)
@@ -79,7 +79,7 @@ if so, check the package's protocol to determine whether pass the IP package to 
 Otherwise, the handler forward the IP Package by looking up a next hop destination in the route table and send.    
 	        	    	        
 
-**4. IP:**
+## 4. IP:
 
 #### Structures:
 	    IpPackage:
@@ -99,7 +99,7 @@ Convert a []byte to IP Package, to send to IP Handler;
 Calculate check sum.    
 
 
-**5. Threads:**
+## 5. Threads:
 
 * User input thread(main)
 * Sending thread: keep sending out the RIP package (node's current routes) to its neighbors every 5s
@@ -107,14 +107,14 @@ Calculate check sum.
 * Timeout thread: Check the node's routes and modify expired routes to have a INFINITY cost
 
 
-**6. Lock:**
+## 6. Lock:
 
 Construct a mutex RWLock when starting a new node    
 Every time when looking up a route in the route table: read lock/unlock (Read lock)    
 Every time when modifying a routes in the route table: lock/unlock (Write lock)    
 
 
-**7. Time Out:**
+## 7. Time Out:
 
 Every time when adding or modifying a route in the route table, initialize the route's Ttl to be current time + 12s    
 Every 5s, the time out thread loop through all routes in current route table and check if any route's Ttl < current time:    

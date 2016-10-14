@@ -211,7 +211,7 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, 
 	payLoad := ipPkt.Payload
 
 	//Check TTL
-	if ipPkt.IpHeader.TTL < 0 {
+	if ipPkt.IpHeader.TTL == 0 {
 		fmt.Println("Time to live runs out. Packet has to be dropped\n")
 		return
 	}

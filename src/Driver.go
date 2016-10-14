@@ -175,47 +175,52 @@ func main() {
 		text, _ := reader.ReadString('\n')
 		cmds := strings.Fields(text)
 
-		switch cmds[0] {
-		case "help":
-			printHelp()
-		case "interfaces":
-			thisNode.PrintInterfaces()
-		case "routes":
-			thisNode.PrintRoutes()
-		case "down":
-			if len(cmds) == 1 {
-				fmt.Println("invalid interface id")
-			} else {
-				id, err := strconv.Atoi(cmds[1])
-				if err != nil {
-					fmt.Println("invalid interface id\n")
-					continue
-				}
-				thisNode.InterfacesDown(id, mutex)
-			}
-		case "up":
-			if len(cmds) == 1 {
-				fmt.Println("invalid interface id")
-			} else {
-				id, err := strconv.Atoi(cmds[1])
-				if err != nil {
-					fmt.Println("invalid interface id\n")
-					continue
-				}
-				thisNode.InterfacesUp(id, mutex)
-			}
-		case "send":
-			if len(cmds) < 4 {
-				fmt.Println("invalid args")
-			} else {
-				thisNode.PrepareAndSendPacket(cmds, udp, mutex)
-			}
+		if len(cmds) == 0 {
+			continue
+		} else {
 
-		case "quit":
-			os.Exit(1)
-		default:
-			fmt.Println("Invalid Command!\n")
-			printHelp()
+			switch cmds[0] {
+			case "help":
+				printHelp()
+			case "interfaces":
+				thisNode.PrintInterfaces()
+			case "routes":
+				thisNode.PrintRoutes()
+			case "down":
+				if len(cmds) == 1 {
+					fmt.Println("invalid interface id")
+				} else {
+					id, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("invalid interface id\n")
+						continue
+					}
+					thisNode.InterfacesDown(id, mutex)
+				}
+			case "up":
+				if len(cmds) == 1 {
+					fmt.Println("invalid interface id")
+				} else {
+					id, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("invalid interface id\n")
+						continue
+					}
+					thisNode.InterfacesUp(id, mutex)
+				}
+			case "send":
+				if len(cmds) < 4 {
+					fmt.Println("invalid args")
+				} else {
+					thisNode.PrepareAndSendPacket(cmds, udp, mutex)
+				}
+
+			case "quit":
+				os.Exit(1)
+			default:
+				fmt.Println("Invalid Command!\n")
+				printHelp()
+			}
 		}
 	}
 	wg.Wait()

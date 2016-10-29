@@ -100,6 +100,8 @@ func (n *Node) PrepareAndSendPacket(cmds []string, u linklayer.UDPLink, mutex *s
 					}
 
 					ipPkt := ipv4.BuildIpPacket([]byte(payLoad), id, link.Src, dest)
+					//fmt.Println(ipPkt.IpHeader.TTL)
+					//fmt.Println(ipPkt.IpHeader.Protocol)
 					u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
 					return
 				}

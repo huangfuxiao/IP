@@ -212,6 +212,8 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, 
 
 	//Check TTL
 	if ipPkt.IpHeader.TTL == 0 {
+		//fmt.Println(ipPkt.IpHeader.TTL)
+		//fmt.Println(ipPkt.IpHeader.Protocol)
 		fmt.Println("Time to live runs out. Packet has to be dropped\n")
 		return
 	}
@@ -239,6 +241,9 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, 
 					return
 				case 200:
 					RunRIPHandler(ipPkt, node, u, mutex)
+					return
+				default:
+					fmt.Println("Unrecognized Protocol")
 					return
 				}
 			}

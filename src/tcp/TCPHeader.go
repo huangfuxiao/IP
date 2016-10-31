@@ -1,17 +1,23 @@
 package tcp
 
+/*
+Copied and modified from
+https://github.com/grahamking/latency/blob/07ba2b7cc2210227cdb9afbec07e65fcfcd2c968/tcp.go
+*/
+
 import (
 	"bytes"
 	"encoding/binary"
 )
 
 const (
-	FIN = 1  // 00 0001
-	SYN = 2  // 00 0010
-	RST = 4  // 00 0100
-	PSH = 8  // 00 1000
-	ACK = 16 // 01 0000
-	URG = 32 // 10 0000
+	NOTHING = 0
+	FIN     = 1  // 00 0001
+	SYN     = 2  // 00 0010
+	RST     = 4  // 00 0100
+	PSH     = 8  // 00 1000
+	ACK     = 16 // 01 0000
+	URG     = 32 // 10 0000
 )
 
 type TCPHeader struct {
@@ -35,24 +41,26 @@ type TCPOption struct {
 	Data   []byte
 }
 
-func BuildTCPHeader(src int, dst int, seq int, ack int, ecn int, ctrl int, ws int) TCPHeader {
+func BuildTCPHeader(src int, dst int, seq int, ack int, ctrl int, ws int) TCPHeader {
 	header := TCPHeader{
 		Source:      uint16(src),
 		Destination: uint16(dst),
 		SeqNum:      uint32(seq),
 		AckNum:      uint32(ack),
 		DataOffset:  uint8(5),
-		ECN:         uint8(ecn),
+		ECN:         uint8(0),
 		Ctrl:        uint8(ctrl),
+		Reserved:    uint8(0),
 		Window:      uint16(ws),
 		Checksum:    uint16(0),
-		Options:     []byte{},
+		Urgent:      uint16(0),
+		Options:     []TCPOption{},
 	}
 	return header
 }
 
 // Parse packet into TCPHeader structure
-func ParseHeader(data []byte) *TCPHeader {
+func ParseTCPHeader(data []byte) *TCPHeader {
 	var tcp TCPHeader
 	r := bytes.NewReader(data)
 	binary.Read(r, binary.BigEndian, &tcp.Source)
@@ -108,10 +116,19 @@ func (tcp *TCPHeader) Marshal() []byte {
 	out := buf.Bytes()
 
 	// Pad to min tcp header size, which is 20 bytes (5 32-bit words)
-	pad := 20 - len(out)
-	for i := 0; i < pad; i++ {
-		out = append(out, 0)
+
+	if len(out) > 20 {
+		pad := 24 - len(out)
+		for i := 0; i < pad; i++ {
+			out = append(out, 0)
+		}
 	}
+	/*
+		pad := 20 - len(out)
+		for i := 0; i < pad; i++ {
+			out = append(out, 0)
+		}
+	*/
 
 	return out
 }

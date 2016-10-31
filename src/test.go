@@ -3,15 +3,20 @@ package main
 import (
 	"./ipv4"
 	"./linklayer"
+	"./tcp"
 	"fmt"
 	"net"
 )
 
 func main() {
 
+	h := tcp.BuildTCPHeader(5005, 50001, 0, 0, 0, 0)
+	p := tcp.BuildTCPPacket([]byte("hello9"), h)
+	buf := tcp.TCPPkgToBuffer(p)
+
 	src := "192.168.1.1"
 	dest := "192.168.0.1"
-	payload := []byte("hello")
+	payload := buf
 
 	header := ipv4.Header{
 		Version:  4,
@@ -37,9 +42,11 @@ func main() {
 		fmt.Println(d)
 	*/
 	x := ipv4.IpPackage{header, payload}
-	fmt.Println(x)
+	//fmt.Println(x)
 	y := ipv4.String(x)
 	fmt.Println(y)
+	//z := tcp.String(p)
+	//fmt.Println(z)
 	/*
 		z := ipv4.IpPkgToBuffer(x)
 		fmt.Println(z)
@@ -50,7 +57,7 @@ func main() {
 	addr := "localhost"
 	port := 5002
 	u := linklayer.InitUDP(addr, port)
-	fmt.Println(u)
+	//fmt.Println(u)
 	u.Send(x, "localhost", 5003)
 
 }

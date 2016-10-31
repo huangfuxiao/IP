@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./api"
 	"./ipv4"
 	"./linklayer"
 	"./tcp"
@@ -43,8 +44,8 @@ func main() {
 	*/
 	x := ipv4.IpPackage{header, payload}
 	//fmt.Println(x)
-	y := ipv4.String(x)
-	fmt.Println(y)
+	//y := ipv4.String(x)
+	//fmt.Println(y)
 	//z := tcp.String(p)
 	//fmt.Println(z)
 	/*
@@ -57,7 +58,9 @@ func main() {
 	addr := "localhost"
 	port := 5002
 	u := linklayer.InitUDP(addr, port)
-	//fmt.Println(u)
+	fmt.Println(u)
 	u.Send(x, "localhost", 5003)
+	fmt.Println("reach")
+	api.SendSyn(src, dest, 5002, 5003, u)
 
 }

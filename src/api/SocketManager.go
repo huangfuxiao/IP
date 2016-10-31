@@ -1,6 +1,7 @@
 package api
 
 import (
+	//".././ipv4"
 	".././linklayer"
 	".././tcp"
 )
@@ -10,11 +11,13 @@ type SocketManager struct {
 	Portnum      int
 	FdToSocket   map[int]*TCB
 	AddrToSocket map[SockAddr]*TCB
+	//interfaces   []ipv4.Interface
 }
 
 func BuildSocketManager() SocketManager {
 	map1 := make(map[int]*TCB)
 	map2 := make(map[SockAddr]*TCB)
+	// Construct Interfaces array
 
 	return SocketManager{0, 1024, map1, map2}
 
@@ -61,6 +64,11 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	tcb := manager.FdToSocket[socket]
 	saddr := tcb.Addr
 	SendSyn(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, u)
+	//-----------
+	//Change State
+	//-----------
+	//Check ACK
+	//-----------
 
 	return 0
 }

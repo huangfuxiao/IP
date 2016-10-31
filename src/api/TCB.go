@@ -39,9 +39,10 @@ func SendSyn(laddr, raddr string, lport, rport int, u linklayer.UDPLink) {
 	data := tcph.Marshal()
 	tcph.Checksum = tcp.Csum(data, to4byte(laddr), to4byte(raddr))
 	data = tcph.Marshal()
-
 	ipp := ipv4.BuildIpPacket(data, 0, laddr, raddr)
-	u.Send(ipp, raddr, rport)
+	//Search the interface and send to the actual address and port
+	//------------TO DO--------------
+	//u.Send(ipp, "localhost", rport)
 
 }
 
@@ -59,12 +60,6 @@ func to4byte(addr string) [4]byte {
 
 /*
 func receiveSynAck(laddr, raddr string) {
-
-	conn, err := net.ListenIP("ip4:tcp", netaddr)
-	if err != nil {
-		log.Fatalf("ListenIP: %s\n", err)
-	}
-	var receiveTime time.Time
 	for {
 		buf := make([]byte, 1024)
 		numRead, raddr, err := conn.ReadFrom(buf)

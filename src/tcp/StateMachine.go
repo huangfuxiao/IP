@@ -147,3 +147,30 @@ func LastAckState(flag int, api string) (int, int) {
 	}
 	return ERROR, NOTHING
 }
+
+func StateString(s int) string {
+	if s == 1 {
+		return "CLOSED"
+	} else if s == 2 {
+		return "LISTEN"
+	} else if s == 3 {
+		return "SYN SENT"
+	} else if s == 4 {
+		return "SYN RCVD"
+	} else if s == 5 {
+		return "ESTAB"
+	} else if s == 6 {
+		return "FIN WAIT 1"
+	} else if s == 7 {
+		return "FIN WAIT 2"
+	} else if s == 8 {
+		return "CLOSING"
+	} else if s == 9 {
+		return "TIME WAIT"
+	} else if s == 10 {
+		return "CLOSE WAIT"
+	} else if s == 11 {
+		return "LAST ACK"
+	}
+	return "ERROR"
+}

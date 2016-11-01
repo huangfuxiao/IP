@@ -14,6 +14,8 @@ type TCB struct {
 	Fd         int
 	State      tcp.State
 	Addr       SockAddr
+	seq        int
+	ack        int
 	RecvBuffer []byte
 	SendBuffer []byte
 }
@@ -29,17 +31,17 @@ func BuildTCB(fd int) TCB {
 	buf := make([]byte, 0)
 	s := tcp.State{State: 1}
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
-	return TCB{fd, s, add, buf, buf}
+	seqn := int(rand.Uint32())
+	ackn := 0
+	return TCB{fd, s, add, seqn, ackn, buf, buf}
 }
 
-func SendSyn(laddr, raddr string, lport, rport int, u linklayer.UDPLink) {
-	seq := int(rand.Uint32())
-
+func SendCtrlMsg(laddr, raddr string, lport, rport int, ctrl uint8, u linklayer.UDPLink) {
 	tcph := tcp.BuildTCPHeader(lport, rport, seq, 0, 2, 0xaaaa)
 	data := tcph.Marshal()
 	tcph.Checksum = tcp.Csum(data, to4byte(laddr), to4byte(raddr))
 	data = tcph.Marshal()
-	ipp := ipv4.BuildIpPacket(data, 0, laddr, raddr)
+	ipp := ipv4.BuildIpPacket(data, 6, laddr, raddr)
 	//Search the interface and send to the actual address and port
 	//------------TO DO--------------
 	//u.Send(ipp, "localhost", rport)

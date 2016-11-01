@@ -63,7 +63,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	// Send syn and change state to SynSent
 	tcb := manager.FdToSocket[socket]
 	saddr := tcb.Addr
-	SendSyn(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, u)
+	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
 	//Change State
 	//-----------

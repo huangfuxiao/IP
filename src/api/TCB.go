@@ -4,6 +4,7 @@ import (
 	".././ipv4"
 	".././linklayer"
 	".././tcp"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -40,6 +41,7 @@ func SendSyn(laddr, raddr string, lport, rport int, u linklayer.UDPLink) {
 	tcph.Checksum = tcp.Csum(data, to4byte(laddr), to4byte(raddr))
 	data = tcph.Marshal()
 	ipp := ipv4.BuildIpPacket(data, 0, laddr, raddr)
+	fmt.Println(ipp)
 	//Search the interface and send to the actual address and port
 	//------------TO DO--------------
 	//u.Send(ipp, "localhost", rport)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./api"
 	"./handler"
 	"./ipv4"
 	"./linklayer"
@@ -104,14 +105,35 @@ func readinLnx(fileName string) (thisNode pkg.Node) {
 }
 
 func printHelp() {
-	fmt.Println("******************************")
-	fmt.Println("help\t\t\t\t-Help Printing")
-	fmt.Println("interfaces\t\t\t-Interface Information")
-	fmt.Println("routes\t\t\t\t-Routing table")
-	fmt.Println("down <id>\t\t\t-Bring one interface down")
-	fmt.Println("up <id>\t\t\t\t-Bring one interface up")
-	fmt.Println("send <dst_ip> <prot> <payload>\t-Send the message to a virtual IP")
-	fmt.Println("quit\t\t\t\t-QUIT")
+	fmt.Println("Commands: ")
+	fmt.Println("accept [port]\t\t\t\t- Spawn a socket, bind it to the given port, and start ")
+	fmt.Println("\t\t\t\t\t  accepting connections on that port")
+	fmt.Println("connect [ip] [port] \t\t\t- Attempt to connect to the given ip address, ")
+	fmt.Println("\t\t\t\t\t  in dot notition, on the given port.")
+	fmt.Println("send [socket] [data]\t\t\t- Send a string on a socket.")
+	fmt.Println("recv [socket] [numbytes] [y/n]\t\t- Try to read data from a given socket. ")
+	fmt.Println("\t\t\t\t\t  If the last argument is y, then you should block ")
+	fmt.Println("\t\t\t\t\t  until numbytes is received,")
+	fmt.Println("\t\t\t\t\t  or the connection closes. If n, then don.t block;")
+	fmt.Println("\t\t\t\t\t  return whatever recv returns. Default is n.")
+	fmt.Println("sendfile [filename] [ip] [port]\t\t- Connect to the given ip and port, ")
+	fmt.Println("\t\t\t\t\t  send the entirety of the specified file,")
+	fmt.Println("\t\t\t\t\t  and close the connection.")
+	fmt.Println("recvfile [filename] [port]\t\t- Listen for a connection on the given port. ")
+	fmt.Println("\t\t\t\t\t  Once established, write everything you can read from ")
+	fmt.Println("\t\t\t\t\t  the socket to the given file. ")
+	fmt.Println("\t\t\t\t\t  Once the other side closes the connection, ")
+	fmt.Println("\t\t\t\t\t  close the connection as well.")
+	fmt.Println("shutdown [socket] [read/write/both]\t- v_shutdown on the given socket.")
+	fmt.Println("close [socket] \t\t\t\t- v_close on the given socket.")
+	fmt.Println("up <id>\t\t\t\t\t- Bring one interface up")
+	fmt.Println("down <id>\t\t\t\t- Bring one interface down")
+	fmt.Println("interfaces\t\t\t\t- List interfaces")
+	fmt.Println("routes\t\t\t\t\t- List routing table rows")
+	fmt.Println("socketss\t\t\t\t- List sockets (fd, ip, port, state)")
+	fmt.Println("window [socket]\t\t\t\t- List window sizes for socket")
+	fmt.Println("quit\t\t\t\t\t- No cleanup, exit(0)")
+	fmt.Println("help\t\t\t\t\t- Show this help")
 }
 
 func initRIP(node pkg.Node, udp linklayer.UDPLink) {
@@ -129,30 +151,17 @@ func initRIP(node pkg.Node, udp linklayer.UDPLink) {
 
 func main() {
 
-	//test go programming
-	/*example := pkg.Interface{Status: 1, Addr: "10.10.168.73"}
-	fmt.Println(example)
-
-	entryEx := pkg.Entry{"dest", "next", 1, 1}
-	fmt.Println(entryEx)
-
-	m := make(map[string]pkg.Entry)
-	m["k1"] = entryEx
-
-	arrEx := []pkg.Interface{example}
-	nodeEx := pkg.Node{1, arrEx, m}
-	fmt.Println(nodeEx)*/
-
+	//Read in lnx file and initialize this node
 	fileName := os.Args[1]
-	//fmt.Printf("Args' length: %d \n", len(os.Args))
 	if len(os.Args) < 2 {
 		println("ERROR: please input a link file")
 		os.Exit(1)
 	}
 	fmt.Println(fileName)
-
 	thisNode := readinLnx(fileName)
-	//fmt.Printf("thisNode made successfully and has local physical addr: %s\n", thisNode.LocalAddr)
+
+	//Initialize this Socket Manager
+	thisSocketManager := api.BuildSocketManager(thisNode.InterfaceArray)
 
 	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
 
@@ -166,8 +175,8 @@ func main() {
 	go runner.Receive_thread(udp, &thisNode, mutex)
 	go runner.Send_thread(&thisNode, udp, mutex)
 	go runner.Timeout_thread(&thisNode, mutex)
+
 	//main handler
-	//This is silly but works
 	for {
 		fmt.Println(">")
 		reader := bufio.NewReader(os.Stdin)
@@ -178,7 +187,6 @@ func main() {
 		if len(cmds) == 0 {
 			continue
 		} else {
-
 			switch cmds[0] {
 			case "help":
 				printHelp()
@@ -213,6 +221,59 @@ func main() {
 					fmt.Println("invalid args")
 				} else {
 					thisNode.PrepareAndSendPacket(cmds, udp, mutex)
+				}
+			case "sockets":
+				thisSocketManager.PrintSockets(thisNode.InterfaceArray)
+			case "accept":
+				if len(cmds) < 2 {
+					fmt.Println("syntax error (usage: accept [port])\n")
+				} else {
+					port, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("syntax error (usage: accept [port])\n")
+						continue
+					}
+					fmt.Printf("accept port %d: currently do nothing\n", port)
+					// socketFd := thisSocketManager.V_socket()
+					// thisSocketManager.V_bind(socketFd, "", port)
+					// thisSocketManager.V_listen(socketFd)
+				}
+			case "connect":
+				if len(cmds) < 3 {
+					fmt.Println("syntax error (usage: connect [ip address] [port])\n")
+				} else {
+					port, err := strconv.Atoi(cmds[2])
+					if err != nil {
+						fmt.Println("syntax error (usage: accept [port])\n")
+						continue
+					}
+					fmt.Printf("connect ip port %d: currently do nothing\n", port)
+					// socketFd := thisSocketManager.V_socket()
+					// thisSocketManager.V_bind(socketFd, "", port)
+					// thisSocketManager.V_listen(socketFd)
+					// thisSocketManager.V_connect(socketFd, cmds[1], , u linklayer.UDPLink)
+				}
+			case "shutdown":
+				if len(cmds) < 3 {
+					fmt.Println("syntax error (usage: shutdown [socket] [shutdown type])\n")
+				} else {
+					socketFD, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("syntax error (usage: shutdown [socket] [shutdown type])\n")
+						continue
+					}
+					fmt.Printf("shutdown socket %d: currently do nothing\n", socketFD)
+				}
+			case "close":
+				if len(cmds) < 2 {
+					fmt.Println("syntax error (usage: close [socket])\n")
+				} else {
+					socketFD, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("syntax error (usage: close [socket])\n")
+						continue
+					}
+					fmt.Printf("close socket %d: currently do nothing\n", socketFD)
 				}
 
 			case "quit":

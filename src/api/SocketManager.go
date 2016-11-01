@@ -74,11 +74,24 @@ func (manager *SocketManager) V_bind(socket int, addr string, port int) int {
 	if !ok {
 		return -1
 	}
-	if addr == "" {
-		//Find the first free interface ip address and set the addr to it.
-		//If port is null, set port to Portnum and Portnum += 1
+
+	//If port is null, set port to Portnum and Portnum += 1
+	if port == -1 {
+		port = manager.Portnum
+		manager.Portnum++
 	}
 	saddr := SockAddr{addr, port, "0.0.0.0", 0}
+	if addr == "" {
+		//Find the first free interface ip address and set the addr to it.
+		for ipAddr, _ := range manager.Interfaces {
+			saddr.LocalAddr = ipAddr
+			_, ok := manager.AddrToSocket[saddr]
+			if !ok {
+				addr = ipAddr
+				break
+			}
+		}
+	}
 	sock.Addr = saddr
 	manager.AddrToSocket[saddr] = sock
 	return 0
@@ -98,7 +111,19 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	tcb := manager.FdToSocket[socket]
 	saddr := tcb.Addr
 	fmt.Println(saddr)
-	tcb.SendCtrlMsg(2)
+
+	//Set remote address to be input addr and port
+	tcb.Addr.RemoteAddr = addr
+	tcb.Addr.RemotePort = port
+	newSaddr := SockAddr{tcb.Addr.LocalAddr, tcb.addr.LocalPort, addr, port}
+	manager.AddrToSocket[newSaddr] = &tcb
+
+	//Set state to SYN SENT
+	curState := tcb.State.State
+	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
+	tcb.State.State = nextState
+	tcb.SendCtrlMsg(ctrl)
+
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
 	//Change State

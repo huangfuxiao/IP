@@ -4,6 +4,7 @@ import (
 	"../ipv4"
 	"../linklayer"
 	"../pkg"
+	"../tcp"
 	"fmt"
 	"strings"
 	"sync"
@@ -207,6 +208,16 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 
 //IP protocol=6
 func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
+	dstIpAddr := ipPkt.IpHeader.Dst.String()
+	srcIpAddr := ipPkt.IpHeader.Src.String()
+	tcpPkt := tcp.BufferToTCPPkg(ipPkt.Payload)
+	tcpHeader := tcpPkt.TCPHeader
+	tcpPayload := tcpPkt.Payload
+	dstPort := tcpHeader.Destination
+	srcPort := tcpHeader.Source
+	ctrl := tcpHeader.Ctrl
+
+	//To Be Continued
 
 }
 

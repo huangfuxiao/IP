@@ -205,6 +205,11 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 	return
 }
 
+//IP protocol=6
+func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
+
+}
+
 func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
 	//Open the IP package
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
@@ -242,6 +247,8 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, 
 				case 200:
 					RunRIPHandler(ipPkt, node, u, mutex)
 					return
+				case 6:
+					RunTCPHandler(ipPkt, node, u, mutex)
 				default:
 					fmt.Println("Unrecognized Protocol")
 					return

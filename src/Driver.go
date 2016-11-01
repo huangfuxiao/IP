@@ -160,10 +160,9 @@ func main() {
 	fmt.Println(fileName)
 	thisNode := readinLnx(fileName)
 
+	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
 	//Initialize this Socket Manager
 	thisSocketManager := api.BuildSocketManager(thisNode.InterfaceArray)
-
-	udp := linklayer.InitUDP(thisNode.LocalAddr, thisNode.Port)
 
 	initRIP(thisNode, udp)
 
@@ -234,9 +233,9 @@ func main() {
 						continue
 					}
 					fmt.Printf("accept port %d: currently do nothing\n", port)
-					// socketFd := thisSocketManager.V_socket()
-					// thisSocketManager.V_bind(socketFd, "", port)
-					// thisSocketManager.V_listen(socketFd)
+					socketFd := thisSocketManager.V_socket(&thisNode, udp)
+					thisSocketManager.V_bind(socketFd, "", port)
+					thisSocketManager.V_listen(socketFd)
 				}
 			case "connect":
 				if len(cmds) < 3 {

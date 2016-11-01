@@ -3,8 +3,9 @@ package api
 import (
 	".././ipv4"
 	".././linklayer"
+	".././pkg"
 	".././tcp"
-	"fmt"
+	//"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -19,6 +20,8 @@ type TCB struct {
 	ack        int
 	RecvBuffer []byte
 	SendBuffer []byte
+	node       *pkg.Node
+	u          linklayer.UDPLink
 }
 
 type SockAddr struct {
@@ -28,24 +31,45 @@ type SockAddr struct {
 	RemotePort int
 }
 
-func BuildTCB(fd int) TCB {
+func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	buf := make([]byte, 0)
 	s := tcp.State{State: 1}
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
 	seqn := int(rand.Uint32())
 	ackn := 0
-	return TCB{fd, s, add, seqn, ackn, buf, buf}
+	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u}
 }
 
-func SendCtrlMsg(laddr, raddr string, lport, rport int, ctrl uint8, u linklayer.UDPLink) {
-	tcph := tcp.BuildTCPHeader(lport, rport, seq, 0, 2, 0xaaaa)
+func (tcb *TCB) SendCtrlMsg(ctrl int) {
+	taddr := tcb.Addr
+	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.seq, tcb.ack, ctrl, 0xaaaa)
 	data := tcph.Marshal()
-	tcph.Checksum = tcp.Csum(data, to4byte(laddr), to4byte(raddr))
+	tcph.Checksum = tcp.Csum(data, to4byte(taddr.LocalAddr), to4byte(taddr.RemoteAddr))
 	data = tcph.Marshal()
-	ipp := ipv4.BuildIpPacket(data, 6, laddr, raddr)
+	/*
+		ipp := ipv4.BuildIpPacket(data, 6, taddr.LocalAddr, taddr.RemoteAddr)
+		fmt.Println(ipp)
+	*/
 	//Search the interface and send to the actual address and port
 	//------------TO DO--------------
-	//u.Send(ipp, "localhost", rport)
+	tcb.seq += 1
+	v, ok := tcb.node.RouteTable[taddr.RemoteAddr]
+	if ok {
+		for _, link := range tcb.node.InterfaceArray {
+			if strings.Compare(v.Next, link.Src) == 0 {
+				if link.Status == 0 {
+					return
+				}
+
+				ipPkt := ipv4.BuildIpPacket(data, 6, taddr.LocalAddr, taddr.RemoteAddr)
+				//fmt.Println(ipPkt.IpHeader.TTL)
+				//fmt.Println(ipPkt.IpHeader.Protocol)
+				tcb.u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
+				return
+			}
+		}
+
+	}
 
 }
 

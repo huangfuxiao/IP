@@ -29,6 +29,7 @@ func BuildSocketManager(interfaceArray []*pkg.Interface) SocketManager {
 }
 
 //Build a fake manager for testing; Will be removed after testing
+/*
 func buildTestMananger(interfaceArray []*pkg.Interface) *SocketManager {
 	testManager := BuildSocketManager(interfaceArray)
 	fd := testManager.Fdnum
@@ -37,17 +38,18 @@ func buildTestMananger(interfaceArray []*pkg.Interface) *SocketManager {
 		saddr := SockAddr{addr, port, "0.0.0.0", 0}
 		buf := make([]byte, 0)
 		s := tcp.State{State: 1}
-		tcb := TCB{fd, s, saddr, buf, buf}
+		tcb := TCB{fd, s, saddr, 0, 0, buf, buf}
 		testManager.FdToSocket[fd] = &tcb
 		testManager.AddrToSocket[saddr] = &tcb
 		fd++
 	}
 	return &testManager
 }
+*/
 
 func (manager *SocketManager) PrintSockets(interfaceArray []*pkg.Interface) {
 	//Build a test manager for testing; Will be removed after testing
-	manager = buildTestMananger(interfaceArray)
+	//manager = buildTestMananger(interfaceArray)
 
 	//Print Sockets
 	fmt.Println("socket\tlocal-addr\tport\t\tdst-addr\tport\tstatus")
@@ -58,10 +60,10 @@ func (manager *SocketManager) PrintSockets(interfaceArray []*pkg.Interface) {
 	}
 }
 
-func (manager *SocketManager) V_socket() int {
+func (manager *SocketManager) V_socket(node *pkg.Node, u linklayer.UDPLink) int {
 	fd := manager.Fdnum
-	tcb := BuildTCB(fd)
-
+	tcb := BuildTCB(fd, node, u)
+	fmt.Println(tcb)
 	manager.Fdnum += 1
 	manager.FdToSocket[fd] = &tcb
 	return fd
@@ -95,6 +97,8 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	// Send syn and change state to SynSent
 	tcb := manager.FdToSocket[socket]
 	saddr := tcb.Addr
+	fmt.Println(saddr)
+	tcb.SendCtrlMsg(2)
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
 	//Change State

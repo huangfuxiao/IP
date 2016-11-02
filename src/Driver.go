@@ -232,7 +232,7 @@ func main() {
 						fmt.Println("syntax error (usage: accept [port])\n")
 						continue
 					}
-					fmt.Printf("accept port %d", port)
+					fmt.Printf("accept port %d\n", port)
 					socketFd := thisSocketManager.V_socket(&thisNode, udp)
 					thisSocketManager.V_bind(socketFd, "", port)
 					thisSocketManager.V_listen(socketFd)

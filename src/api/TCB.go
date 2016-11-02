@@ -16,8 +16,8 @@ type TCB struct {
 	Fd         int
 	State      tcp.State
 	Addr       SockAddr
-	seq        int
-	ack        int
+	Seq        int
+	Ack        int
 	RecvBuffer []byte
 	SendBuffer []byte
 	node       *pkg.Node
@@ -42,7 +42,7 @@ func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 
 func (tcb *TCB) SendCtrlMsg(ctrl int) {
 	taddr := tcb.Addr
-	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.seq, tcb.ack, ctrl, 0xaaaa)
+	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.Seq, tcb.Ack, ctrl, 0xaaaa)
 	data := tcph.Marshal()
 	tcph.Checksum = tcp.Csum(data, to4byte(taddr.LocalAddr), to4byte(taddr.RemoteAddr))
 	data = tcph.Marshal()
@@ -52,7 +52,7 @@ func (tcb *TCB) SendCtrlMsg(ctrl int) {
 	*/
 	//Search the interface and send to the actual address and port
 	//------------TO DO--------------
-	tcb.seq += 1
+	tcb.Seq += 1
 	v, ok := tcb.node.RouteTable[taddr.RemoteAddr]
 	if ok {
 		for _, link := range tcb.node.InterfaceArray {

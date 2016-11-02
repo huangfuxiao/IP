@@ -63,7 +63,6 @@ func (manager *SocketManager) PrintSockets(interfaceArray []*pkg.Interface) {
 func (manager *SocketManager) V_socket(node *pkg.Node, u linklayer.UDPLink) int {
 	fd := manager.Fdnum
 	tcb := BuildTCB(fd, node, u)
-	fmt.Println(tcb)
 	manager.Fdnum += 1
 	manager.FdToSocket[fd] = &tcb
 	return fd
@@ -109,8 +108,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 
 	// Send syn and change state to SynSent
 	tcb := manager.FdToSocket[socket]
-	saddr := tcb.Addr
-	fmt.Println(saddr)
+	//fmt.Println(saddr)
 
 	//Set remote address to be input addr and port
 	tcb.Addr.RemoteAddr = addr
@@ -121,7 +119,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 	//Set state to SYN SENT
 	curState := tcb.State.State
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
-	fmt.Println(ctrl)
+	//fmt.Println(ctrl)
 	tcb.State.State = nextState
 	tcb.SendCtrlMsg(ctrl)
 

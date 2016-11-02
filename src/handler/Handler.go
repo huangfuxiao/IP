@@ -216,56 +216,70 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 	tcpPayload := tcpPkt.Payload
 	dstPort := int(tcpHeader.Destination)
 	srcPort := int(tcpHeader.Source)
-	fmt.Println("tcp reach ctrl", tcpHeader.Ctrl)
+	//fmt.Println("tcp saddr ", srcIpAddr, srcPort, dstIpAddr, dstPort)
+	//fmt.Println("tcp get ctrl", tcpHeader.Ctrl)
+	//fmt.Println("receive seqnum and acknum: ", tcpHeader.SeqNum, tcpHeader.AckNum)
 	if tcpHeader.HasFlag(tcp.SYN) && !tcpHeader.HasFlag(tcp.ACK) {
 		//manager.V_accept()
-		fmt.Println("TCP reach")
+		//fmt.Println("receive syn only")
 		saddr := api.SockAddr{dstIpAddr, dstPort, "0.0.0.0", 0}
 		tcb, ok := manager.AddrToSocket[saddr]
-		if ok {
+		if ok && tcb.State.State == 2 {
 			saddr.RemoteAddr = srcIpAddr
 			saddr.RemotePort = srcPort
-			newfd := manager.V_socket(node, u)
-			newtcb := manager.FdToSocket[newfd]
-			newtcb.Addr = saddr
-			fmt.Println("cursta ", newtcb.State.State)
-			newState, cf := tcp.StateMachine(tcb.State.State, tcp.SYN, "")
-			if newState == 0 {
-				return
+			_, ok2 := manager.AddrToSocket[saddr]
+			if !ok2 {
+				newfd := manager.V_socket(node, u)
+				newtcb := manager.FdToSocket[newfd]
+				newtcb.Addr = saddr
+				newState, cf := tcp.StateMachine(tcb.State.State, tcp.SYN, "")
+				if newState == 0 {
+					return
+				}
+				//fmt.Println("return flag", cf)
+				newtcb.State.State = newState
+				newtcb.Ack = int(tcpHeader.SeqNum) + 1
+				manager.AddrToSocket[saddr] = newtcb
+
+				newtcb.SendCtrlMsg(cf)
 			}
-			fmt.Println("news", newState)
-			fmt.Println("next flag", cf)
-			newtcb.State.State = newState
-			manager.AddrToSocket[saddr] = newtcb
-			newtcb.SendCtrlMsg(cf)
+
 		}
 	} else if tcpHeader.HasFlag(tcp.SYN) && tcpHeader.HasFlag(tcp.ACK) {
+		//fmt.Println("receive syn and ack")
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
+		//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
 		if ok {
 			newState, cf := tcp.StateMachine(tcb.State.State, tcp.SYN+tcp.ACK, "")
 			if newState == 0 {
 				return
 			}
 			tcb.State.State = newState
+			tcb.Ack = int(tcpHeader.SeqNum) + 1
+			//fmt.Println("return flag ", cf)
 			tcb.SendCtrlMsg(cf)
 		}
 	} else if tcpHeader.HasFlag(tcp.ACK) {
+		//fmt.Println("receive ack only")
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
-		fmt.Println(saddr)
 		tcb, ok := manager.AddrToSocket[saddr]
+		//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
 		if ok {
-			fmt.Println(tcb.State.State)
-			newState, cf := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
-			if newState == 0 {
-				return
+			if tcb.Seq == int(tcpHeader.AckNum) {
+				newState, cf := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+				if newState == 0 {
+					return
+				}
+				tcb.State.State = newState
+				if cf != 0 {
+					tcb.SendCtrlMsg(cf)
+				}
 			}
-			tcb.State.State = newState
-			if cf != 0 {
-				tcb.SendCtrlMsg(cf)
-			}
+
 		}
 	} else if tcpHeader.HasFlag(tcp.NOTHING) {
+		fmt.Println("reach nothing")
 		fmt.Println(tcpPayload)
 	}
 

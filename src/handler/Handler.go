@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"../api"
 	"../ipv4"
 	"../linklayer"
 	"../pkg"
@@ -207,21 +208,72 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 }
 
 //IP protocol=6
-func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
+func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex, manager *api.SocketManager) {
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
 	tcpPkt := tcp.BufferToTCPPkg(ipPkt.Payload)
 	tcpHeader := tcpPkt.TCPHeader
 	tcpPayload := tcpPkt.Payload
-	dstPort := tcpHeader.Destination
-	srcPort := tcpHeader.Source
-	ctrl := tcpHeader.Ctrl
+	dstPort := int(tcpHeader.Destination)
+	srcPort := int(tcpHeader.Source)
+	fmt.Println("tcp reach ctrl", tcpHeader.Ctrl)
+	if tcpHeader.HasFlag(tcp.SYN) && !tcpHeader.HasFlag(tcp.ACK) {
+		//manager.V_accept()
+		fmt.Println("TCP reach")
+		saddr := api.SockAddr{dstIpAddr, dstPort, "0.0.0.0", 0}
+		tcb, ok := manager.AddrToSocket[saddr]
+		if ok {
+			saddr.RemoteAddr = srcIpAddr
+			saddr.RemotePort = srcPort
+			newfd := manager.V_socket(node, u)
+			newtcb := manager.FdToSocket[newfd]
+			newtcb.Addr = saddr
+			fmt.Println("cursta ", newtcb.State.State)
+			newState, cf := tcp.StateMachine(tcb.State.State, tcp.SYN, "")
+			if newState == 0 {
+				return
+			}
+			fmt.Println("news", newState)
+			fmt.Println("next flag", cf)
+			newtcb.State.State = newState
+			manager.AddrToSocket[saddr] = newtcb
+			newtcb.SendCtrlMsg(cf)
+		}
+	} else if tcpHeader.HasFlag(tcp.SYN) && tcpHeader.HasFlag(tcp.ACK) {
+		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
+		tcb, ok := manager.AddrToSocket[saddr]
+		if ok {
+			newState, cf := tcp.StateMachine(tcb.State.State, tcp.SYN+tcp.ACK, "")
+			if newState == 0 {
+				return
+			}
+			tcb.State.State = newState
+			tcb.SendCtrlMsg(cf)
+		}
+	} else if tcpHeader.HasFlag(tcp.ACK) {
+		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
+		fmt.Println(saddr)
+		tcb, ok := manager.AddrToSocket[saddr]
+		if ok {
+			fmt.Println(tcb.State.State)
+			newState, cf := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+			if newState == 0 {
+				return
+			}
+			tcb.State.State = newState
+			if cf != 0 {
+				tcb.SendCtrlMsg(cf)
+			}
+		}
+	} else if tcpHeader.HasFlag(tcp.NOTHING) {
+		fmt.Println(tcpPayload)
+	}
 
 	//To Be Continued
 
 }
 
-func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex) {
+func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex, manager *api.SocketManager) {
 	//Open the IP package
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	payLoad := ipPkt.Payload
@@ -259,7 +311,8 @@ func HandleIpPackage(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, 
 					RunRIPHandler(ipPkt, node, u, mutex)
 					return
 				case 6:
-					RunTCPHandler(ipPkt, node, u, mutex)
+					RunTCPHandler(ipPkt, node, u, mutex, manager)
+					return
 				default:
 					fmt.Println("Unrecognized Protocol")
 					return

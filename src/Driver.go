@@ -171,7 +171,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(4)
 
-	go runner.Receive_thread(udp, &thisNode, mutex)
+	go runner.Receive_thread(udp, &thisNode, mutex, &thisSocketManager)
 	go runner.Send_thread(&thisNode, udp, mutex)
 	go runner.Timeout_thread(&thisNode, mutex)
 
@@ -232,7 +232,7 @@ func main() {
 						fmt.Println("syntax error (usage: accept [port])\n")
 						continue
 					}
-					fmt.Printf("accept port %d: currently do nothing\n", port)
+					fmt.Printf("accept port %d", port)
 					socketFd := thisSocketManager.V_socket(&thisNode, udp)
 					thisSocketManager.V_bind(socketFd, "", port)
 					thisSocketManager.V_listen(socketFd)
@@ -246,11 +246,11 @@ func main() {
 						fmt.Println("syntax error (usage: accept [port])\n")
 						continue
 					}
-					fmt.Printf("connect ip port %d: currently do nothing\n", port)
-					// socketFd := thisSocketManager.V_socket()
-					// thisSocketManager.V_bind(socketFd, "", port)
-					// thisSocketManager.V_listen(socketFd)
-					// thisSocketManager.V_connect(socketFd, cmds[1], , u linklayer.UDPLink)
+					fmt.Printf("connect ip port %d", port)
+					socketFd := thisSocketManager.V_socket(&thisNode, udp)
+					fmt.Println(socketFd)
+					thisSocketManager.V_bind(socketFd, "", -1)
+					thisSocketManager.V_connect(socketFd, cmds[1], port)
 				}
 			case "shutdown":
 				if len(cmds) < 3 {

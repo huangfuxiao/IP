@@ -105,7 +105,7 @@ func (manager *SocketManager) V_listen(socket int) int {
 	return 0
 }
 
-func (manager *SocketManager) V_connect(socket int, addr string, port int, u linklayer.UDPLink) int {
+func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 
 	// Send syn and change state to SynSent
 	tcb := manager.FdToSocket[socket]
@@ -115,12 +115,13 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	//Set remote address to be input addr and port
 	tcb.Addr.RemoteAddr = addr
 	tcb.Addr.RemotePort = port
-	newSaddr := SockAddr{tcb.Addr.LocalAddr, tcb.addr.LocalPort, addr, port}
-	manager.AddrToSocket[newSaddr] = &tcb
+	newSaddr := SockAddr{tcb.Addr.LocalAddr, tcb.Addr.LocalPort, addr, port}
+	manager.AddrToSocket[newSaddr] = tcb
 
 	//Set state to SYN SENT
 	curState := tcb.State.State
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
+	fmt.Println(ctrl)
 	tcb.State.State = nextState
 	tcb.SendCtrlMsg(ctrl)
 
@@ -134,7 +135,9 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int, u lin
 	return 0
 }
 
-func (manager *SocketManager) V_accept(socket int, addr string) int {
+func (manager *SocketManager) V_accept(socket int, addr string, port int, node *pkg.Node, u linklayer.UDPLink) int {
+	//idx := manager.V_socket(node, u)
+	//saddr :=
 	return 0
 }
 

@@ -53,7 +53,7 @@ func StateMachine(s int, flag int, api string) (int, int) {
 
 func ClosedState(api string) (int, int) {
 	if api == "active" {
-		return SYNSENT, FIN
+		return SYNSENT, SYN
 	} else if api == "passive" {
 		return LISTEN, NOTHING
 	}

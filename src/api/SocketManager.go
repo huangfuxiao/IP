@@ -91,17 +91,28 @@ func (manager *SocketManager) V_bind(socket int, addr string, port int) int {
 			}
 		}
 	}
-	sock.Addr = saddr
-	manager.AddrToSocket[saddr] = sock
-	return 0
+	if addr != "" {
+		sock.Addr = saddr
+		manager.AddrToSocket[saddr] = sock
+		return 0
+	} else {
+		fmt.Println("v_bind() error: Cannot assign requested address")
+		delete(manager.FdToSocket, socket)
+		manager.Fdnum -= 1
+	}
+
+	return -1
 }
 
 func (manager *SocketManager) V_listen(socket int) int {
-	tcb := manager.FdToSocket[socket]
-	curState := tcb.State.State
-	nextState, _ := tcp.StateMachine(curState, 0, "passive")
-	tcb.State.State = nextState
-	return 0
+	tcb, ok := manager.FdToSocket[socket]
+	if ok {
+		curState := tcb.State.State
+		nextState, _ := tcp.StateMachine(curState, 0, "passive")
+		tcb.State.State = nextState
+		return 0
+	}
+	return -1
 }
 
 func (manager *SocketManager) V_connect(socket int, addr string, port int) int {

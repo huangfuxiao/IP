@@ -280,9 +280,13 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			}
 
 		}
-	} else if tcpHeader.HasFlag(tcp.NOTHING) {
-		fmt.Println("reach nothing")
-		fmt.Println(tcpPayload)
+	} else {
+		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
+		tcb, ok := manager.AddrToSocket[saddr]
+		if ok && tcb.State.State == 5 {
+			// Write into the receive buffer
+		}
+
 	}
 
 	//To Be Continued

@@ -241,7 +241,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				newtcb.Ack = int(tcpHeader.SeqNum) + 1
 				manager.AddrToSocket[saddr] = newtcb
 
-				newtcb.SendCtrlMsg(cf)
+				newtcb.SendCtrlMsg(cf, true)
 			}
 
 		}
@@ -257,8 +257,9 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			}
 			tcb.State.State = newState
 			tcb.Ack = int(tcpHeader.SeqNum) + 1
-			//fmt.Println("return flag ", cf)
-			tcb.SendCtrlMsg(cf)
+			tcb.Check[int(tcpHeader.AckNum-1)] = true
+			//fmt.Println("receive syn and ack ", tcb.Seq-1)
+			tcb.SendCtrlMsg(cf, false)
 		}
 	} else if tcpHeader.HasFlag(tcp.ACK) {
 		//fmt.Println("receive ack only")
@@ -267,13 +268,14 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 		//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
 		if ok {
 			if tcb.Seq == int(tcpHeader.AckNum) {
+				tcb.Check[int(tcpHeader.AckNum-1)] = true
 				newState, cf := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
 				if newState == 0 {
 					return
 				}
 				tcb.State.State = newState
 				if cf != 0 {
-					tcb.SendCtrlMsg(cf)
+					tcb.SendCtrlMsg(cf, false)
 				}
 			}
 

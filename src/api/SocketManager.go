@@ -132,7 +132,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
 	//fmt.Println(ctrl)
 	tcb.State.State = nextState
-	tcb.SendCtrlMsg(ctrl)
+	tcb.SendCtrlMsg(ctrl, true)
 
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------

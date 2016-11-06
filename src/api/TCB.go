@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type TCB struct {
@@ -22,6 +23,7 @@ type TCB struct {
 	SendBuffer []byte
 	node       *pkg.Node
 	u          linklayer.UDPLink
+	Check      map[int]bool
 }
 
 type SockAddr struct {
@@ -33,14 +35,16 @@ type SockAddr struct {
 
 func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	buf := make([]byte, 0)
+	ch := make(map[int]bool)
 	s := tcp.State{State: 1}
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
 	seqn := int(rand.Uint32())
 	ackn := 0
-	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u}
+	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u, ch}
 }
 
-func (tcb *TCB) SendCtrlMsg(ctrl int) {
+func (tcb *TCB) SendCtrlMsg(ctrl int, c bool) {
+	tcb.Check[tcb.Seq] = false
 	taddr := tcb.Addr
 	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.Seq, tcb.Ack, ctrl, 0xaaaa)
 	data := tcph.Marshal()
@@ -65,6 +69,10 @@ func (tcb *TCB) SendCtrlMsg(ctrl int) {
 				//fmt.Println(ipPkt.IpHeader.TTL)
 				//fmt.Println(ipPkt.IpHeader.Protocol)
 				tcb.u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
+				if c {
+					go CheckACK(tcb.Seq-1, tcb, ctrl, 0, ipPkt, link.RemoteAddr, link.RemotePort)
+				}
+
 				return
 			}
 		}
@@ -83,6 +91,25 @@ func to4byte(addr string) [4]byte {
 	b2, _ := strconv.Atoi(parts[2])
 	b3, _ := strconv.Atoi(parts[3])
 	return [4]byte{byte(b0), byte(b1), byte(b2), byte(b3)}
+}
+
+func CheckACK(idx int, tcb *TCB, ctrl int, count int, ipp ipv4.IpPackage, addr string, port int) {
+	for {
+		time.Sleep(3000 * time.Millisecond)
+		if count == 3 {
+			break
+		}
+		if tcb.Check[idx] == true {
+			break
+		} else {
+			tcb.u.Send(ipp, addr, port)
+		}
+		//fmt.Println("Check thread and flag ", count, ctrl)
+		//fmt.Println("current seq in thread ", idx)
+		count += 1
+
+	}
+
 }
 
 /*

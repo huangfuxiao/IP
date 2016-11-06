@@ -150,18 +150,125 @@ func (manager *SocketManager) V_accept(socket int, addr string, port int, node *
 	return 0
 }
 
-func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int) int {
-	return 0
+func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int) (int, []byte) {
+	tcb, ok := manager.FdToSocket[socket]
+	if !ok {
+		fmt.Println("Socket doesn't exist!\n")
+		return -1, buf
+	}
+	if tcb.BlockRead {
+		fmt.Println("v_read() error: Operation not permitted")
+		return -1, buf
+	}
+
+	//To be implemented after receiver sliding window; Currently make a test buffer
+	testString := []byte("hello")
+	tcb.RecvBuffer = make([]byte, 0, len(testString))
+	tcb.RecvBuffer = append(tcb.RecvBuffer, testString...)
+	fmt.Printf("This is the tcb receiver buffer before read: %v\n", tcb.RecvBuffer)
+
+	//Check available number of bytes to read; Currently set available to be nbyte
+	if len(tcb.RecvBuffer) == 0 {
+		//wait until some bytes are received from clients
+	}
+
+	readLen := min(len(tcb.RecvBuffer), nbyte)
+	buf = append(buf, tcb.RecvBuffer[:readLen]...)
+	tcb.RecvBuffer = tcb.RecvBuffer[readLen:]
+	fmt.Printf("This is the string readin: %v\n", buf)
+	fmt.Printf("This is the tcb receiver buffer after read: %v\n", tcb.RecvBuffer)
+
+	return readLen, buf
 }
 
 func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
-	return 0
+	tcb, ok := manager.FdToSocket[socket]
+	if !ok {
+		fmt.Println("Socket doesn't exist!\n")
+		return -1
+	}
+	if tcb.BlockWrite {
+		fmt.Println("v_write() error: Operation not permitted")
+		return -1
+	}
+
+	//To be implemented after sender sliding window;
+	//Check available number of bytes to write in; Currently set availabe to be nbyte
+	available := len(buf)
+	readLen := min(available, len(buf))
+
+	//Currently manually set the SendBuffer size
+	tcb.SendBuffer = make([]byte, 0, readLen)
+	tcb.SendBuffer = append(tcb.SendBuffer, buf[:readLen]...)
+	fmt.Printf("This is the tcb sender buffer after write: %v\n", tcb.SendBuffer)
+
+	return readLen
 }
 
 func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
+	// 1 = write; 2 = read; 3 = both
+	tcb, ok := manager.FdToSocket[socket]
+	if !ok {
+		fmt.Println("Socket doesn't exist!\n")
+		return -1
+	}
+	//Socket closed already
+	if tcb.State.State == 1 {
+		fmt.Println("Socket closed already!\n")
+		return 0
+	}
+
+	switch ntype {
+	case 1:
+		//Block write
+		tcb.BlockWrite = true
+
+		//Send FIN
+		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+		tcb.State.State = newState
+		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
+		tcb.SendCtrlMsg(cf)
+	case 2:
+		//Block read;
+		tcb.BlockRead = true
+	case 3:
+		//Block both write and read
+		tcb.BlockRead = true
+		tcb.BlockWrite = true
+
+		//Send FIN
+		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+		tcb.State.State = newState
+		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
+		tcb.SendCtrlMsg(cf)
+	}
 	return 0
 }
 
 func (manager *SocketManager) v_close(socket int) int {
+	tcb, ok := manager.FdToSocket[socket]
+	if !ok {
+		fmt.Println("Socket doesn't exist!\n")
+		return -1
+	}
+	//Socket closed already
+	if tcb.State.State == 1 {
+		fmt.Println("Socket closed already!\n")
+		return 0
+	}
+	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
+	tcb.State.State = newState
+	tcb.SendCtrlMsg(cf)
+
+	//Wait for ACK
+
 	return 0
+}
+
+//helper Function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -22,6 +22,8 @@ type TCB struct {
 	SendBuffer []byte
 	node       *pkg.Node
 	u          linklayer.UDPLink
+	BlockWrite bool
+	BlockRead  bool
 }
 
 type SockAddr struct {
@@ -37,7 +39,7 @@ func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
 	seqn := int(rand.Uint32())
 	ackn := 0
-	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u}
+	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u, false, false}
 }
 
 func (tcb *TCB) SendCtrlMsg(ctrl int) {

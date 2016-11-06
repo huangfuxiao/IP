@@ -264,7 +264,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 		//fmt.Println("receive ack only")
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
-		//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
+		fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))
 		if ok {
 			if tcb.Seq == int(tcpHeader.AckNum) {
 				newState, cf := tcp.StateMachine(tcb.State.State, tcp.ACK, "")

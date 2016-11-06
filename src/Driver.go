@@ -216,10 +216,33 @@ func main() {
 					thisNode.InterfacesUp(id, mutex)
 				}
 			case "send":
-				if len(cmds) < 4 {
-					fmt.Println("invalid args")
+				if len(cmds) < 3 {
+					fmt.Println("syntax error (usage: send [interface] [payload])\n")
 				} else {
-					thisNode.PrepareAndSendPacket(cmds, udp, mutex)
+					//thisNode.PrepareAndSendPacket(cmds, udp, mutex)
+					//TCP additions start here
+					socketFd, err := strconv.Atoi(cmds[1])
+					if err != nil {
+						fmt.Println("syntax error (usage: send [interface] [payload])\n")
+						continue
+					}
+					toSend := []byte(cmds[2])
+					thisSocketManager.V_write(socketFd, toSend, len(toSend))
+				}
+			case "recv":
+				if len(cmds) < 3 {
+					fmt.Println("syntax error (usage: recv [interface] [bytes to read] [loop? (y/n), optional])\n")
+				} else {
+					//TCP additions start here
+					socketFd, err1 := strconv.Atoi(cmds[1])
+					nbyte, err2 := strconv.Atoi(cmds[2])
+					if err1 != nil || err2 != nil {
+						fmt.Println("syntax error (usage: recv [interface] [bytes to read] [loop? (y/n), optional])\n")
+						continue
+					}
+					buf := make([]byte, 0, nbyte)
+					_, bufReadIn := thisSocketManager.V_read(socketFd, buf, nbyte)
+					fmt.Printf("This is the string readin: %v\n", bufReadIn)
 				}
 			case "sockets":
 				thisSocketManager.PrintSockets(thisNode.InterfaceArray)

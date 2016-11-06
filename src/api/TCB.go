@@ -19,8 +19,8 @@ type TCB struct {
 	Addr       SockAddr
 	Seq        int
 	Ack        int
-	RecvBuffer []byte
-	SendBuffer []byte
+	RecvW      RecvWindow
+	SendW      SendWindow
 	node       *pkg.Node
 	u          linklayer.UDPLink
 	Check      map[int]bool
@@ -36,18 +36,23 @@ type SockAddr struct {
 }
 
 func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
-	buf := make([]byte, 0)
+	Rb := make([]byte, 65535)
+	Rw := RecvWindow{Rb, -1, -1, -1}
+	Sb := make([]byte, 65535)
+	Sw := SendWindow{Sb, -1, 0, -1}
 	ch := make(map[int]bool)
 	s := tcp.State{State: 1}
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
 	seqn := int(rand.Uint32())
 	ackn := 0
-	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u, ch}
-	return TCB{fd, s, add, seqn, ackn, buf, buf, node, u, ch, false, false}
+	return TCB{fd, s, add, seqn, ackn, Rw, Sw, node, u, ch, false, false}
 }
 
 func (tcb *TCB) SendCtrlMsg(ctrl int, c bool) {
-	tcb.Check[tcb.Seq] = false
+	if c {
+		tcb.Check[tcb.Seq] = false
+	}
+
 	taddr := tcb.Addr
 	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.Seq, tcb.Ack, ctrl, 0xaaaa)
 	data := tcph.Marshal()
@@ -81,6 +86,11 @@ func (tcb *TCB) SendCtrlMsg(ctrl int, c bool) {
 		}
 
 	}
+
+}
+
+// Send actual data to the receiver
+func (tcb *TCB) SendData(data []byte) {
 
 }
 

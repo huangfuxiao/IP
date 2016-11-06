@@ -150,13 +150,14 @@ func initRIP(node pkg.Node, udp linklayer.UDPLink) {
 }
 
 func main() {
-
-	//Read in lnx file and initialize this node
-	fileName := os.Args[1]
 	if len(os.Args) < 2 {
 		println("ERROR: please input a link file")
 		os.Exit(1)
 	}
+
+	//Read in lnx file and initialize this node
+	fileName := os.Args[1]
+
 	fmt.Println(fileName)
 	thisNode := readinLnx(fileName)
 

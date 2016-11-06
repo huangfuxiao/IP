@@ -168,9 +168,9 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int) (int, []
 	fmt.Printf("This is the tcb receiver buffer before read: %v\n", tcb.RecvBuffer)
 
 	//Check available number of bytes to read; Currently set available to be nbyte
-	if len(tcb.RecvBuffer) == 0 {
+	/*if len(tcb.RecvBuffer) == 0 {
 		//wait until some bytes are received from clients
-	}
+	}*/
 
 	readLen := min(len(tcb.RecvBuffer), nbyte)
 	buf = append(buf, tcb.RecvBuffer[:readLen]...)
@@ -227,7 +227,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf)
+		tcb.SendCtrlMsg(cf, false)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
@@ -240,7 +240,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf)
+		tcb.SendCtrlMsg(cf, false)
 	}
 	return 0
 }
@@ -258,7 +258,7 @@ func (manager *SocketManager) v_close(socket int) int {
 	}
 	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 	tcb.State.State = newState
-	tcb.SendCtrlMsg(cf)
+	tcb.SendCtrlMsg(cf, false)
 
 	//Wait for ACK
 

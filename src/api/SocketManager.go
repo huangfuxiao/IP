@@ -150,7 +150,7 @@ func (manager *SocketManager) V_accept(socket int, addr string, port int, node *
 	return 0
 }
 
-func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int) (int, []byte) {
+func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check string) (int, []byte) {
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
@@ -161,23 +161,15 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int) (int, []
 		return -1, buf
 	}
 
-	//To be implemented after receiver sliding window; Currently make a test buffer
-	testString := []byte("hello")
-	tcb.RecvBuffer = make([]byte, 0, len(testString))
-	tcb.RecvBuffer = append(tcb.RecvBuffer, testString...)
-	fmt.Printf("This is the tcb receiver buffer before read: %v\n", tcb.RecvBuffer)
+	buf, readLen := tcb.RecvW.Read(nbyte)
 
-	//Check available number of bytes to read; Currently set available to be nbyte
-	/*if len(tcb.RecvBuffer) == 0 {
-		//wait until some bytes are received from clients
-	}*/
-
-	readLen := min(len(tcb.RecvBuffer), nbyte)
-	buf = append(buf, tcb.RecvBuffer[:readLen]...)
-	tcb.RecvBuffer = tcb.RecvBuffer[readLen:]
-	fmt.Printf("This is the string readin: %v\n", buf)
-	fmt.Printf("This is the tcb receiver buffer after read: %v\n", tcb.RecvBuffer)
-
+	if check == "y" {
+		for readLen < nbyte {
+			addBuf, count := tcb.RecvW.Read(1)
+			buf = append(buf, addBuf...)
+			readLen = readLen + count
+		}
+	}
 	return readLen, buf
 }
 
@@ -192,17 +184,8 @@ func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
 		return -1
 	}
 
-	//To be implemented after sender sliding window;
-	//Check available number of bytes to write in; Currently set availabe to be nbyte
-	available := len(buf)
-	readLen := min(available, len(buf))
-
-	//Currently manually set the SendBuffer size
-	tcb.SendBuffer = make([]byte, 0, readLen)
-	tcb.SendBuffer = append(tcb.SendBuffer, buf[:readLen]...)
-	fmt.Printf("This is the tcb sender buffer after write: %v\n", tcb.SendBuffer)
-
-	return readLen
+	writeLen := tcb.SendW.Write(buf)
+	return writeLen
 }
 
 func (manager *SocketManager) V_shutdown(socket int, ntype int) int {

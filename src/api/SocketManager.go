@@ -160,9 +160,22 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 		fmt.Println("v_read() error: Operation not permitted")
 		return -1, buf
 	}
+	readLen := 0
 
-	buf, readLen := tcb.RecvW.Read(nbyte)
+	//When receive buffer is empty
+	if tcb.RecvW.LastByteRead == tcb.RecvW.NextByteExpected-1 {
+		for {
+			buf, readLen := tcb.RecvW.Read(nbyte)
+			if readLen > 0 {
+				break
+			}
+		}
+	} else {
+		//When receive buffer is not empty
+		buf, readLen := tcb.RecvW.Read(nbyte)
+	}
 
+	//Check if block flag is yes;
 	if check == "y" {
 		for readLen < nbyte {
 			addBuf, count := tcb.RecvW.Read(1)
@@ -170,6 +183,7 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 			readLen = readLen + count
 		}
 	}
+
 	return readLen, buf
 }
 

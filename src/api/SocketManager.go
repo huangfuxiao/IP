@@ -132,7 +132,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
 	//fmt.Println(ctrl)
 	tcb.State.State = nextState
-	tcb.SendCtrlMsg(ctrl, true)
+	tcb.SendCtrlMsg(ctrl, true, true)
 
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
@@ -150,7 +150,8 @@ func (manager *SocketManager) V_accept(socket int, addr string, port int, node *
 	return 0
 }
 
-func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check string) (int, []byte) {
+func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, []byte) {
+	buf := make([]byte, 0)
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
@@ -165,18 +166,23 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 	//When receive buffer is empty
 	if tcb.RecvW.LastByteRead == tcb.RecvW.NextByteExpected-1 {
 		for {
-			buf, readLen := tcb.RecvW.Read(nbyte)
+			retbuf, ret := tcb.RecvW.Read(nbyte)
+			readLen += ret
+			buf = append(buf, retbuf...)
 			if readLen > 0 {
 				break
 			}
 		}
 	} else {
 		//When receive buffer is not empty
-		buf, readLen := tcb.RecvW.Read(nbyte)
+		retbuf, ret := tcb.RecvW.Read(nbyte)
+		readLen += ret
+		buf = append(buf, retbuf...)
 	}
 
 	//Check if block flag is yes;
 	if check == "y" {
+		fmt.Println("reach y.......")
 		for readLen < nbyte {
 			addBuf, count := tcb.RecvW.Read(1)
 			buf = append(buf, addBuf...)
@@ -187,7 +193,7 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 	return readLen, buf
 }
 
-func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
+func (manager *SocketManager) V_write(socket int, data []byte) int {
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
@@ -197,8 +203,18 @@ func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
 		fmt.Println("v_write() error: Operation not permitted")
 		return -1
 	}
+	if len(data) > tcb.SendW.AdvertisedWindow {
+		return -1
+	}
 
-	writeLen := tcb.SendW.Write(buf)
+	if tcb.State.State != 5 {
+		return -1
+	}
+
+	writeLen := tcb.SendW.Write(data)
+	if writeLen != -1 {
+		tcb.SendData(data)
+	}
 	return writeLen
 }
 
@@ -224,7 +240,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf, false)
+		tcb.SendCtrlMsg(cf, false, true)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
@@ -237,7 +253,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf, false)
+		tcb.SendCtrlMsg(cf, false, true)
 	}
 	return 0
 }
@@ -255,7 +271,7 @@ func (manager *SocketManager) v_close(socket int) int {
 	}
 	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 	tcb.State.State = newState
-	tcb.SendCtrlMsg(cf, false)
+	tcb.SendCtrlMsg(cf, false, true)
 
 	//Wait for ACK
 

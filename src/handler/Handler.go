@@ -214,6 +214,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 	tcpPkt := tcp.BufferToTCPPkg(ipPkt.Payload)
 	tcpHeader := tcpPkt.TCPHeader
 	tcpPayload := tcpPkt.Payload
+	fmt.Println("This is tcpPayload: ", tcpPayload)
 	dstPort := int(tcpHeader.Destination)
 	srcPort := int(tcpHeader.Source)
 	//fmt.Println("tcp saddr ", srcIpAddr, srcPort, dstIpAddr, dstPort)
@@ -222,6 +223,8 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 	if tcpHeader.HasFlag(tcp.SYN) && !tcpHeader.HasFlag(tcp.ACK) {
 		//manager.V_accept()
 		//fmt.Println("receive syn only")
+		fmt.Println("tcpHeader seqnum and ack num : ", int(tcpHeader.SeqNum), int(tcpHeader.AckNum))
+		fmt.Println("tcpHeader: ", tcpHeader)
 		saddr := api.SockAddr{dstIpAddr, dstPort, "0.0.0.0", 0}
 		tcb, ok := manager.AddrToSocket[saddr]
 		if ok && tcb.State.State == 2 {
@@ -247,6 +250,8 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 		}
 	} else if tcpHeader.HasFlag(tcp.SYN) && tcpHeader.HasFlag(tcp.ACK) {
 		//fmt.Println("receive syn and ack")
+		fmt.Println("tcpHeader seqnum and ack num : ", int(tcpHeader.SeqNum), int(tcpHeader.AckNum))
+		fmt.Println("tcpHeader: ", tcpHeader)
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
 		//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
@@ -260,9 +265,36 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			tcb.Check[int(tcpHeader.AckNum-1)] = true
 			//fmt.Println("receive syn and ack ", tcb.Seq-1)
 			tcb.SendCtrlMsg(cf, false)
+
+			//Reset tcb seq num; works for now but not sure correctness
+			tcb.Seq = tcb.Seq - 1
 		}
+	} else if tcpHeader.HasFlag(tcp.FIN) {
+		fmt.Println("tcpHeader seqnum and ack num : ", int(tcpHeader.SeqNum), int(tcpHeader.AckNum))
+		fmt.Println("tcpHeader: ", tcpHeader)
+
+		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
+		tcb, ok := manager.AddrToSocket[saddr]
+		if ok {
+			newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+			if newState == 0 {
+				return
+			}
+			tcb.State.State = newState
+			fmt.Println("This is the new state after FIN: ", newState)
+			tcb.Ack = int(tcpHeader.SeqNum) + 1
+			tcb.Check[int(tcpHeader.AckNum-1)] = true
+			fmt.Println("receive syn and ack ", tcb.Seq-1)
+			tcb.SendCtrlMsg(cf, false)
+
+			//Reset tcb seq num; works for now but not sure correctness
+			tcb.Seq = int(tcpHeader.AckNum)
+		}
+
 	} else if tcpHeader.HasFlag(tcp.ACK) {
 		//fmt.Println("receive ack only")
+		fmt.Println("tcpHeader seqnum and ack num : ", int(tcpHeader.SeqNum), int(tcpHeader.AckNum))
+		fmt.Println("tcpHeader: ", tcpHeader)
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
 		fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))

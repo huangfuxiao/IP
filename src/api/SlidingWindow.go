@@ -25,7 +25,7 @@ type RecvWindow struct {
 }
 
 func (rw *RecvWindow) AdvertisedWindow() int {
-	return size - ((rw.NextByteExpected - 1) - rw.LastByteRead)
+	return rw.Size - ((rw.NextByteExpected - 1) - rw.LastByteRead)
 }
 
 func (sw *SendWindow) CheckSendAvaliable(adw int) bool {
@@ -53,7 +53,7 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 		if rw.LastByteRead == rw.NextByteExpected-1 {
 			break
 		}
-		buf = append(buf, rw.RecvBuffer[rw.LastByteRead]...)
+		buf = append(buf, []byte{rw.RecvBuffer[rw.LastByteRead]}...)
 		rw.LastByteRead++
 		count++
 	}
@@ -66,10 +66,13 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 func (rw *SendWindow) Write(buf []byte) int {
 	count := 0
 	for i := 0; i < len(buf); i++ {
+		if !rw.CheckWriteAvaliable() {
+			break
+		}
 		if rw.LastByteWritten == rw.AdvertisedWindow {
 			break
 		}
-		rw.SendBuffer = append(rw.SendBuffer, buf[i]...)
+		rw.SendBuffer = append(rw.SendBuffer, []byte{buf[i]}...)
 		rw.LastByteWritten++
 		count++
 	}

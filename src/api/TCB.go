@@ -5,7 +5,7 @@ import (
 	".././linklayer"
 	".././pkg"
 	".././tcp"
-	//"fmt"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -36,10 +36,11 @@ type SockAddr struct {
 }
 
 func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
+	PkgInFlight := make([]tcp.TCPPackage, 100)
 	Rb := make([]byte, 65535)
-	Rw := RecvWindow{Rb, -1, -1, -1}
+	Rw := RecvWindow{Rb, -1, -1, -1, 65535}
 	Sb := make([]byte, 65535)
-	Sw := SendWindow{Sb, -1, 0, -1}
+	Sw := SendWindow{100, Sb, -1, 0, -1, PkgInFlight, 0, 65535}
 	ch := make(map[int]bool)
 	s := tcp.State{State: 1}
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
@@ -55,8 +56,10 @@ func (tcb *TCB) SendCtrlMsg(ctrl int, c bool) {
 
 	taddr := tcb.Addr
 	tcph := tcp.BuildTCPHeader(taddr.LocalPort, taddr.RemotePort, tcb.Seq, tcb.Ack, ctrl, 0xaaaa)
+	fmt.Printf("SendCtrlMsg tcbSeq and ack num: %d %d \n", tcb.Seq, tcb.Ack)
+	fmt.Println("tcpHeader: ", tcph)
 	data := tcph.Marshal()
-	tcph.Checksum = tcp.Csum(data, to4byte(taddr.LocalAddr), to4byte(taddr.RemoteAddr))
+	tcph.Checksum = tcp.Csum(data, To4byte(taddr.LocalAddr), To4byte(taddr.RemoteAddr))
 	data = tcph.Marshal()
 	/*
 		ipp := ipv4.BuildIpPacket(data, 6, taddr.LocalAddr, taddr.RemoteAddr)
@@ -94,11 +97,11 @@ func (tcb *TCB) SendData(data []byte) {
 
 }
 
-func to4byte(addr string) [4]byte {
+func To4byte(addr string) [4]byte {
 	parts := strings.Split(addr, ".")
 	b0, err := strconv.Atoi(parts[0])
 	if err != nil {
-		log.Fatalf("to4byte: %s (latency works with IPv4 addresses only, but not IPv6!)\n", err)
+		log.Fatalf("To4byte: %s (latency works with IPv4 addresses only, but not IPv6!)\n", err)
 	}
 	b1, _ := strconv.Atoi(parts[1])
 	b2, _ := strconv.Atoi(parts[2])

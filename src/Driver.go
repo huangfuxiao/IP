@@ -242,7 +242,7 @@ func main() {
 						continue
 					}
 					buf := make([]byte, 0, nbyte)
-					_, bufReadIn := thisSocketManager.V_read(socketFd, buf, nbyte)
+					_, bufReadIn := thisSocketManager.V_read(socketFd, buf, nbyte, "y")
 					fmt.Printf("This is the string readin: %v\n", bufReadIn)
 				}
 			case "sockets":
@@ -285,7 +285,17 @@ func main() {
 						fmt.Println("syntax error (usage: shutdown [socket] [shutdown type])\n")
 						continue
 					}
-					fmt.Printf("shutdown socket %d: currently do nothing\n", socketFD)
+					if cmds[2] == "write" {
+						thisSocketManager.V_shutdown(socketFD, 1)
+					} else if cmds[2] == "read" {
+						thisSocketManager.V_shutdown(socketFD, 2)
+					} else if cmds[2] == "both" {
+						thisSocketManager.V_shutdown(socketFD, 3)
+					} else {
+						fmt.Println("syntax error (usage: shutdown [socket] [shutdown type])\n")
+						continue
+					}
+
 				}
 			case "close":
 				if len(cmds) < 2 {
@@ -296,7 +306,7 @@ func main() {
 						fmt.Println("syntax error (usage: close [socket])\n")
 						continue
 					}
-					fmt.Printf("close socket %d: currently do nothing\n", socketFD)
+					thisSocketManager.V_close(socketFD)
 				}
 
 			case "quit":

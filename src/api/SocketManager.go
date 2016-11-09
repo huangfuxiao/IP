@@ -165,14 +165,14 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 	//When receive buffer is empty
 	if tcb.RecvW.LastByteRead == tcb.RecvW.NextByteExpected-1 {
 		for {
-			buf, readLen := tcb.RecvW.Read(nbyte)
+			buf, readLen = tcb.RecvW.Read(nbyte)
 			if readLen > 0 {
 				break
 			}
 		}
 	} else {
 		//When receive buffer is not empty
-		buf, readLen := tcb.RecvW.Read(nbyte)
+		buf, readLen = tcb.RecvW.Read(nbyte)
 	}
 
 	//Check if block flag is yes;
@@ -209,55 +209,98 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		fmt.Println("Socket doesn't exist!\n")
 		return -1
 	}
-	//Socket closed already
-	if tcb.State.State == 1 {
-		fmt.Println("Socket closed already!\n")
+	//Socket is closing or closed already
+	if tcb.State.State == tcp.CLOSED {
+		fmt.Println("Socket is closed already!\n")
 		return 0
+	}
+	//Socket is listening
+	if tcb.State.State == tcp.LISTEN {
+		fmt.Println("Socket is listening and cannot be shutdown! \n")
+		return -1
 	}
 
 	switch ntype {
 	case 1:
 		//Block write
-		tcb.BlockWrite = true
+		//Check tcb state first
+		if !(tcb.State.State == tcp.ESTAB) && !(tcb.State.State == tcp.CLOSEWAIT) && !(tcb.State.State == tcp.SYNRCVD) {
+			fmt.Println("Socket state is not ESTAB, FINWAIT1, nor SYNRCVD, and cannot be shutdown!\n")
+			return -1
+		}
 
+		if tcb.BlockWrite {
+			return 0
+		}
+
+		tcb.BlockWrite = true
 		//Send FIN
-		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+		newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 		tcb.State.State = newState
-		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
+
+		fmt.Printf("Shutdown Write: this is the cf: %d \n", cf)
+		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
 		tcb.SendCtrlMsg(cf, false)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
 	case 3:
 		//Block both write and read
+		//Check tcb state first
+		if !(tcb.State.State == tcp.ESTAB) && !(tcb.State.State == tcp.CLOSEWAIT) && !(tcb.State.State == tcp.SYNRCVD) {
+			fmt.Println("Socket state is not ESTAB, FINWAIT1, nor SYNRCVD, and cannot be shutdown!\n")
+			return -1
+		}
+
 		tcb.BlockRead = true
+		if tcb.BlockWrite {
+			return 0
+		}
 		tcb.BlockWrite = true
 
 		//Send FIN
-		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+		newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 		tcb.State.State = newState
-		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
+
+		fmt.Printf("Shutdown both: this is the cf: %d \n", cf)
+		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
 		tcb.SendCtrlMsg(cf, false)
+
 	}
 	return 0
 }
 
-func (manager *SocketManager) v_close(socket int) int {
+func (manager *SocketManager) V_close(socket int) int {
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
 		return -1
 	}
 	//Socket closed already
-	if tcb.State.State == 1 {
+	if tcb.State.State == tcp.CLOSED {
 		fmt.Println("Socket closed already!\n")
 		return 0
 	}
-	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
-	tcb.State.State = newState
-	tcb.SendCtrlMsg(cf, false)
 
-	//Wait for ACK
+	//tcb.State.State == tcp.LISTEN
+	if tcb.State.State == tcp.LISTEN {
+		fmt.Printf("V_accept() error on socket %d: Software caused connection abort", socket)
+	}
+
+	//Shut down both read and write of the socket
+	manager.V_shutdown(socket, 3)
+
+	for {
+		if tcb.State.State == tcp.CLOSED {
+			break
+		}
+	}
+
+	if !tcb.BlockWrite {
+		manager.V_shutdown(socket, 3)
+	}
+	delete(manager.FdToSocket, socket)
+	delete(manager.AddrToSocket, tcb.Addr)
 
 	return 0
 }

@@ -132,7 +132,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
 	//fmt.Println(ctrl)
 	tcb.State.State = nextState
-	tcb.SendCtrlMsg(ctrl, true)
+	tcb.SendCtrlMsg(ctrl, true, true)
 
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
@@ -150,7 +150,8 @@ func (manager *SocketManager) V_accept(socket int, addr string, port int, node *
 	return 0
 }
 
-func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check string) (int, []byte) {
+func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, []byte) {
+	buf := make([]byte, 0)
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
@@ -165,18 +166,23 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 	//When receive buffer is empty
 	if tcb.RecvW.LastByteRead == tcb.RecvW.NextByteExpected-1 {
 		for {
-			buf, readLen = tcb.RecvW.Read(nbyte)
+			retbuf, ret := tcb.RecvW.Read(nbyte)
+			readLen += ret
+			buf = append(buf, retbuf...)
 			if readLen > 0 {
 				break
 			}
 		}
 	} else {
 		//When receive buffer is not empty
-		buf, readLen = tcb.RecvW.Read(nbyte)
+		retbuf, ret := tcb.RecvW.Read(nbyte)
+		readLen += ret
+		buf = append(buf, retbuf...)
 	}
 
 	//Check if block flag is yes;
 	if check == "y" {
+		fmt.Println("reach y.......")
 		for readLen < nbyte {
 			addBuf, count := tcb.RecvW.Read(1)
 			buf = append(buf, addBuf...)
@@ -187,7 +193,7 @@ func (manager *SocketManager) V_read(socket int, buf []byte, nbyte int, check st
 	return readLen, buf
 }
 
-func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
+func (manager *SocketManager) V_write(socket int, data []byte) int {
 	tcb, ok := manager.FdToSocket[socket]
 	if !ok {
 		fmt.Println("Socket doesn't exist!\n")
@@ -197,8 +203,18 @@ func (manager *SocketManager) V_write(socket int, buf []byte, nbyte int) int {
 		fmt.Println("v_write() error: Operation not permitted")
 		return -1
 	}
+	if len(data) > tcb.SendW.AdvertisedWindow {
+		return -1
+	}
 
-	writeLen := tcb.SendW.Write(buf)
+	if tcb.State.State != 5 {
+		return -1
+	}
+
+	writeLen := tcb.SendW.Write(data)
+	if writeLen != -1 {
+		tcb.SendData(data)
+	}
 	return writeLen
 }
 
@@ -239,8 +255,8 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		tcb.State.State = newState
 
 		fmt.Printf("Shutdown Write: this is the cf: %d \n", cf)
+		tcb.SendCtrlMsg(cf, false, true)
 		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
-		tcb.SendCtrlMsg(cf, false)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
@@ -263,8 +279,8 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		tcb.State.State = newState
 
 		fmt.Printf("Shutdown both: this is the cf: %d \n", cf)
+		tcb.SendCtrlMsg(cf, false, true)
 		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
-		tcb.SendCtrlMsg(cf, false)
 
 	}
 	return 0
@@ -277,30 +293,15 @@ func (manager *SocketManager) V_close(socket int) int {
 		return -1
 	}
 	//Socket closed already
-	if tcb.State.State == tcp.CLOSED {
+	if tcb.State.State == 1 {
 		fmt.Println("Socket closed already!\n")
 		return 0
 	}
+	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
+	tcb.State.State = newState
+	tcb.SendCtrlMsg(cf, false, true)
 
-	//tcb.State.State == tcp.LISTEN
-	if tcb.State.State == tcp.LISTEN {
-		fmt.Printf("V_accept() error on socket %d: Software caused connection abort", socket)
-	}
-
-	//Shut down both read and write of the socket
-	manager.V_shutdown(socket, 3)
-
-	for {
-		if tcb.State.State == tcp.CLOSED {
-			break
-		}
-	}
-
-	if !tcb.BlockWrite {
-		manager.V_shutdown(socket, 3)
-	}
-	delete(manager.FdToSocket, socket)
-	delete(manager.AddrToSocket, tcb.Addr)
+	//Wait for ACK
 
 	return 0
 }

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"../tcp"
+	//"../tcp"
 	"fmt"
 )
 
@@ -11,44 +11,41 @@ type SendWindow struct {
 	LastByteWritten  int
 	LastByteAcked    int
 	LastByteSent     int
-	PkgInFlight      []tcp.TCPPackage
-	BytesInFlight    int
-	Size             int
+	// PkgInFlight      []tcp.TCPPackage
+	BytesInFlight int
+	Size          int
 }
 
 type RecvWindow struct {
+	back             bool
 	RecvBuffer       []byte
 	LastSeq          int
 	LastByteRead     int
 	NextByteExpected int
-	LastByteRcvd     int
 	Size             int
 }
 
 func BuildSendWindow() SendWindow {
-	Sb := make([]byte, 65535)
-	PIF := make([]tcp.TCPPackage, 0)
-	return SendWindow{65535, Sb, 0, 0, 0, PIF, 0, 65535}
+	Sb := make([]byte, 10)
+	// PIF := make([]tcp.TCPPackage, 0)
+	return SendWindow{65535, Sb, 0, 0, 0, 0, 10}
 }
 
 func BuildRecvWindow() RecvWindow {
-	Rb := make([]byte, 65535)
-	return RecvWindow{Rb, -1, 0, 1, 0, 65535}
+	Rb := make([]byte, 10)
+	return RecvWindow{false, Rb, -1, 0, 1, 10}
 
 }
 
-func (sw *SendWindow) CheckSendAvaliable() bool {
-	if sw.LastByteSent-sw.LastByteAcked <= sw.AdvertisedWindow {
-		return true
-	}
-	return false
-}
+// func (sw *SendWindow) CheckSendAvaliable() bool {
+// 	if sw.LastByteSent-sw.LastByteAcked <= sw.AdvertisedWindow {
+// 		return true
+// 	}
+// 	return false
+// }
 
-func (sw *SendWindow) CheckWriteAvaliable() bool {
-	if sw.LastByteWritten-sw.LastByteAcked <= sw.Size {
-		return true
-	}
-	return false
+func (sw *SendWindow) BytesCanBeWritten() int {
+	return sw.Size - (sw.LastByteWritten - sw.LastByteAcked)
 }
 
 func (sw *SendWindow) EffectiveWindow() int {
@@ -56,61 +53,106 @@ func (sw *SendWindow) EffectiveWindow() int {
 }
 
 func (sw *SendWindow) Write(buf []byte) int {
-	if !sw.CheckWriteAvaliable() || !sw.CheckSendAvaliable() {
-		return -1
+	num := len(buf)
+	//fmt.Println("length of buf in Write ", num)
+	//fmt.Println("length that can be written ", sw.BytesCanBeWritten())
+	if sw.BytesCanBeWritten() < num {
+		//fmt.Println("less bytes can be written ", sw.BytesCanBeWritten())
+		num = sw.BytesCanBeWritten()
 	}
 
-	count := 0
 	i := 0
-	for i < len(buf) {
-		// if sw.LastByteWritten == sw.AdvertisedWindow {
-		// 	break
-		// }
+	for i < num {
+		//fmt.Println(sw.LastByteWritten)
+
 		sw.SendBuffer[sw.LastByteWritten] = buf[i]
 		sw.LastByteWritten++
-		count++
 		i++
 	}
-	fmt.Println("Count after loop ", count)
-	fmt.Println("sending buffer ", sw.SendBuffer[sw.LastByteAcked:sw.LastByteSent+20])
-
+	//fmt.Println("Count after loop ", count)
+	//fmt.Println("sending buffer ", sw.SendBuffer[sw.LastByteAcked:sw.LastByteAcked+20])
+	fmt.Println("Last byte written index ", sw.LastByteWritten)
+	fmt.Println("Last byte acked index ", sw.LastByteAcked)
+	fmt.Println("Last byte sent", sw.LastByteSent)
 	//If cannot write, count would be 0
-	return count
+	return num
 
 }
 
 func (rw *RecvWindow) AdvertisedWindow() int {
+	if rw.back {
+		return rw.Size - ((rw.NextByteExpected - 1 + rw.Size) - rw.LastByteRead)
+	}
 	return rw.Size - ((rw.NextByteExpected - 1) - rw.LastByteRead)
 }
 
 // Write the received data into the receiving window buffer
-func (rw *RecvWindow) Receive(data []byte, se int) int {
+func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	// TODO IMPLEMENTATION
+	pad := 0
 	if len(data) > rw.AdvertisedWindow() {
-		return 0
+		fmt.Println("data length larger than advertise window")
+		return 0, 0
 	}
 	idx := se - rw.LastSeq
-	//fmt.Println("last seq ", rw.LastSeq)
-	//fmt.Println(se)
 	i := 0
 	//fmt.Println("write into receive buffer:", rw.LastByteRead)
 	for i < len(data) {
-		//fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
-		rw.RecvBuffer[rw.LastByteRead+idx+i] = data[i]
-
-		rw.LastByteRcvd++
-		rw.NextByteExpected++
-		i++
-		if rw.LastByteRcvd == rw.Size {
-			rw.LastByteRcvd = 0
+		fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
+		index := rw.LastByteRead + idx + i
+		if index >= rw.Size {
+			index -= rw.Size
 		}
-		if rw.NextByteExpected == rw.Size {
-			rw.NextByteExpected = 0
+		rw.RecvBuffer[index] = data[i]
+		i++
+	}
+	//fmt.Println(rw.RecvBuffer[rw.LastByteRead : rw.LastByteRead+20])
+	i = 0
+
+	if order {
+		fmt.Println("INCREASE EXPECTED BEFORE ", rw.NextByteExpected)
+		for i < len(data) {
+			rw.NextByteExpected++
+			i++
+			if rw.NextByteExpected == rw.Size {
+				rw.back = true
+				rw.NextByteExpected = 0
+			}
+		}
+		fmt.Println("INCREASE EXPECTED AFTER ", rw.NextByteExpected)
+	}
+
+	if order {
+		for {
+			fmt.Println("INCREASE PADDING")
+			if rw.NextByteExpected == 0 {
+				if rw.RecvBuffer[rw.Size-1] == 0 {
+					break
+				}
+			} else {
+				if rw.RecvBuffer[rw.NextByteExpected-1] == 0 {
+					break
+				}
+			}
+			if rw.NextByteExpected == rw.LastByteRead+1 {
+				break
+			}
+			rw.NextByteExpected++
+			if rw.NextByteExpected == rw.Size {
+				rw.back = true
+				rw.NextByteExpected = 0
+			}
+			pad++
+
 		}
 	}
+
+	fmt.Println(rw.LastByteRead)
+	fmt.Println(rw.NextByteExpected)
+	fmt.Println(rw.AdvertisedWindow())
 	// fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("recebuff remaining:", string(rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20]))
-	return 1
+	return 1, pad
 
 }
 
@@ -120,15 +162,23 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 	// fmt.Println("lastbyteread before ", rw.LastByteRead)
 	// fmt.Println("recebuff remaining before:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	for i := 0; i < nbyte; i++ {
-		if rw.LastByteRead == rw.NextByteExpected-1 {
-			break
+		if rw.back == false {
+			if rw.LastByteRead == rw.NextByteExpected-1 {
+				break
+			}
 		}
-		fmt.Println(string(rw.RecvBuffer[rw.LastByteRead]))
+
 		buf = append(buf, rw.RecvBuffer[rw.LastByteRead])
 		rw.LastByteRead++
+		rw.RecvBuffer[rw.LastByteRead-1] = 0
+		if rw.LastByteRead == rw.Size {
+			rw.back = false
+			rw.LastByteRead = 0
+		}
 		count++
 	}
 	rw.LastSeq += count
+
 	// fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("count ", count)
 	// fmt.Println("......read.......", string(buf))

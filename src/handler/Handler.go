@@ -210,21 +210,38 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 //IP protocol=6
 func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex, manager *api.SocketManager) {
 	fmt.Println("RECEIVE !!!!!!!!")
+
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
+
 	tcpPkt := tcp.BufferToTCPPkg(ipPkt.Payload)
 	tcpHeader := tcpPkt.TCPHeader
+
 	tcpPayload := tcpPkt.Payload
 	dstPort := int(tcpHeader.Destination)
 	srcPort := int(tcpHeader.Source)
 	//fmt.Println("tcp saddr ", srcIpAddr, srcPort, dstIpAddr, dstPort)
 	//fmt.Println("tcp get ctrl", tcpHeader.Ctrl)
-	fmt.Println("receive seqnum and acknum: ", tcpHeader.SeqNum, tcpHeader.AckNum)
-	fmt.Println("receive payload ", tcpPayload)
+
+	//Check tcp Check sum
+	tempbuff := ipPkt.Payload
+	tempbuff[16] = 0
+	tempbuff[17] = 0
+	recvCheckSum := tcp.Csum(tempbuff, api.To4byte(srcIpAddr), api.To4byte(dstIpAddr))
+	if tcpHeader.Checksum != recvCheckSum {
+
+		fmt.Println("tcp Checksum error!")
+		return
+	}
+
+	ws := int(tcpHeader.Window)
+
+	// fmt.Println("receive seqnum and acknum: ", tcpHeader.SeqNum, tcpHeader.AckNum)
+	// fmt.Println("receive payload ", tcpPayload)
 	if len(tcpPayload) == 0 {
 		if tcpHeader.HasFlag(tcp.SYN) && !tcpHeader.HasFlag(tcp.ACK) {
 			//manager.V_accept()
-			//fmt.Println("receive syn only")
+			fmt.Println("receive syn only")
 			saddr := api.SockAddr{dstIpAddr, dstPort, "0.0.0.0", 0}
 			tcb, ok := manager.AddrToSocket[saddr]
 			if ok && tcb.State.State == 2 {
@@ -242,14 +259,15 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 					//fmt.Println("return flag", cf)
 					newtcb.State.State = newState
 					newtcb.Ack = int(tcpHeader.SeqNum) + 1
+					newtcb.SendW.AdvertisedWindow = ws
 					manager.AddrToSocket[saddr] = newtcb
 
-					newtcb.SendCtrlMsg(cf, true, true)
+					newtcb.SendCtrlMsg(cf, true, true, tcb.RecvW.AdvertisedWindow())
 				}
 
 			}
 		} else if tcpHeader.HasFlag(tcp.SYN) && tcpHeader.HasFlag(tcp.ACK) {
-			//fmt.Println("receive syn and ack")
+			fmt.Println("receive syn and ack")
 			saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 			tcb, ok := manager.AddrToSocket[saddr]
 			//fmt.Println("current seqnum and ack num : ", tcb.Seq, tcb.Ack)
@@ -261,9 +279,12 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				tcb.State.State = newState
 				tcb.Ack = int(tcpHeader.SeqNum) + 1
 				tcb.RecvW.LastSeq = int(tcpHeader.SeqNum) + 1
+				tcb.SendW.AdvertisedWindow = ws
 				tcb.Check[int(tcpHeader.AckNum-1)] = true
 				//fmt.Println("receive syn and ack ", tcb.Seq-1)
-				tcb.SendCtrlMsg(cf, false, false)
+				tcb.SendCtrlMsg(cf, false, false, tcb.RecvW.AdvertisedWindow())
+				go tcb.SendDataThread()
+				go tcb.DataACKThread()
 
 			}
 		} else if tcpHeader.HasFlag(tcp.FIN) {
@@ -282,7 +303,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				tcb.Ack = int(tcpHeader.SeqNum) + 1
 				tcb.Check[int(tcpHeader.AckNum-1)] = true
 				fmt.Println("receive syn and ack ", tcb.Seq-1)
-				tcb.SendCtrlMsg(cf, false, false)
+				tcb.SendCtrlMsg(cf, false, false, tcb.RecvW.AdvertisedWindow())
 
 				if tcb.State.State == tcp.TIMEWAIT {
 					go manager.TimeWaitTimeOut(tcb, 30000)
@@ -292,7 +313,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				//tcb.Seq = int(tcpHeader.AckNum)
 			}
 		} else if tcpHeader.HasFlag(tcp.ACK) {
-			//fmt.Println("receive ack only")
+			fmt.Println("receive ack only")
 			saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 			tcb, ok := manager.AddrToSocket[saddr]
 			//fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))
@@ -307,13 +328,30 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 							return
 						}
 						tcb.State.State = newState
+						tcb.SendW.AdvertisedWindow = ws
 						if cf != 0 {
-							tcb.SendCtrlMsg(cf, false, true)
+							tcb.SendCtrlMsg(cf, false, true, 65535)
 						}
+						go tcb.SendDataThread()
+						go tcb.DataACKThread()
 					}
-				} else if tcb.State.State == tcp.ESTAB {
-					// fmt.Println("reach here with idx ", int(tcpHeader.AckNum)-len(tcpPayload))
+
+				} else if tcb.State.State == 5 {
+					//fmt.Println("reach here with idx ", int(tcpHeader.AckNum)-len(tcpPayload))
 					// tcb.ActualCheck[int(tcpHeader.AckNum)-len(tcpPayload)] = true
+					pif, ok := tcb.PIFCheck[int(tcpHeader.AckNum)]
+					if ok {
+
+						tcb.SendW.BytesInFlight -= pif.Length
+						tcb.SendW.LastByteAcked += pif.Length
+						tcb.SendW.AdvertisedWindow = ws
+						delete(tcb.PIFCheck, int(tcpHeader.AckNum))
+
+						fmt.Println("bytes can be written now", tcb.SendW.BytesCanBeWritten())
+						fmt.Println("pif ", tcb.PIFCheck)
+						fmt.Println("bytes in flight after ack", tcb.SendW.BytesInFlight)
+					}
+
 				} else if tcb.State.State == tcp.FINWAIT1 || tcb.State.State == tcp.LASTACK {
 					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
 					tcb.State.State = newState
@@ -321,27 +359,40 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
 					tcb.State.State = newState
 					go manager.TimeWaitTimeOut(tcb, 30000)
+
 				}
 			}
 		}
 	} else {
-		//fmt.Println("receive message ", string(tcpPayload))
+		fmt.Println("receive message ", string(tcpPayload))
 
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
-		if ok && tcb.State.State == 5 && len(tcpPayload) < tcb.RecvW.AdvertisedWindow() {
-			// Write into the receive buffer
-			//fmt.Println("recv window seq ", tcb.RecvW.LastSeq)
-			su := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum))
-			//fmt.Println("su ", su)
-			//tcb.Seq += len(tcpPayload)
-			if su == 1 {
-				//fmt.Println("success and send ack")
-				tcb.Ack = int(tcpHeader.SeqNum) + len(tcpPayload)
+		fmt.Println("advertised Window now ", tcb.RecvW.AdvertisedWindow())
+		if ok && tcb.State.State == 5 && len(tcpPayload) <= tcb.RecvW.AdvertisedWindow() {
+			fmt.Println("find tcb")
+			if int(tcpHeader.SeqNum) == tcb.Ack {
+				fmt.Println("correct seq order")
+				// Write into the receive buffer
+				//fmt.Println("recv window seq ", tcb.RecvW.LastSeq)
+				su, pad := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), true)
+				if su == 1 {
+					//fmt.Println("success and send ack")
+					tcb.Ack = int(tcpHeader.SeqNum) + len(tcpPayload) + pad
+					tcb.SendW.AdvertisedWindow = ws
 
-				fmt.Println(tcb.Ack)
-				fmt.Println(tcpHeader.SeqNum)
-				tcb.SendCtrlMsg(tcp.ACK, false, false)
+					//fmt.Println(tcpHeader.SeqNum)
+					tcb.SendCtrlMsg(tcp.ACK, false, false, tcb.RecvW.AdvertisedWindow())
+				}
+			} else {
+				fmt.Println("wrong")
+				su, _ := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), false)
+				//fmt.Println("su ", su)
+				//tcb.Seq += len(tcpPayload)
+				if su == 1 {
+					tcb.SendW.AdvertisedWindow = ws
+					tcb.SendCtrlMsg(tcp.ACK, false, false, tcb.RecvW.AdvertisedWindow())
+				}
 			}
 
 		}

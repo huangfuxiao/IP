@@ -310,6 +310,7 @@ func (manager *SocketManager) V_close(socket int) int {
 		return 0
 	} else {
 		manager.V_shutdown(socket, 3)
+		time.Sleep(3000 * time.Millisecond)
 		if tcb.State.State == tcp.FINWAIT2 {
 			newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 			tcb.State.State = newState

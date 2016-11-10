@@ -117,8 +117,8 @@ func (rw *RecvWindow) Receive(data []byte, se int) int {
 func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 	buf := make([]byte, 0)
 	count := 0
-	fmt.Println("lastbyteread before ", rw.LastByteRead)
-	fmt.Println("recebuff remaining before:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
+	// fmt.Println("lastbyteread before ", rw.LastByteRead)
+	// fmt.Println("recebuff remaining before:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	for i := 0; i < nbyte; i++ {
 		if rw.LastByteRead == rw.NextByteExpected-1 {
 			break
@@ -129,10 +129,10 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 		count++
 	}
 	rw.LastSeq += count
-	fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
-	fmt.Println("count ", count)
-	fmt.Println("......read.......", string(buf))
-	fmt.Println("lastbyteread after ", rw.LastByteRead)
+	// fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
+	// fmt.Println("count ", count)
+	// fmt.Println("......read.......", string(buf))
+	// fmt.Println("lastbyteread after ", rw.LastByteRead)
 
 	//If canno read, count would be 0
 	return buf, count

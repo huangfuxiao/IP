@@ -253,7 +253,7 @@ func main() {
 					}
 				}
 			case "sockets":
-				thisSocketManager.PrintSockets(thisNode.InterfaceArray)
+				thisSocketManager.PrintSockets()
 			case "accept":
 				if len(cmds) < 2 {
 					fmt.Println("syntax error (usage: accept [port])\n")
@@ -282,6 +282,18 @@ func main() {
 					fmt.Println(socketFd)
 					thisSocketManager.V_bind(socketFd, "", -1)
 					thisSocketManager.V_connect(socketFd, cmds[1], port)
+				}
+			case "sendfile":
+				if len(cmds) < 4 {
+					fmt.Println("syntax error (usage: sendfile [filename] [ip address][port])\n")
+				} else {
+					go runner.Sendfile_thread(udp, &thisNode, mutex, &thisSocketManager, cmds)
+				}
+			case "recvfile":
+				if len(cmds) < 3 {
+					fmt.Println("syntax error (usage: recvfile [filename] [port])\n")
+				} else {
+					go runner.Recvfile_thread(udp, &thisNode, mutex, &thisSocketManager, cmds)
 				}
 			case "shutdown":
 				if len(cmds) < 3 {

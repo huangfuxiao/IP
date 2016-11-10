@@ -284,6 +284,10 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				fmt.Println("receive syn and ack ", tcb.Seq-1)
 				tcb.SendCtrlMsg(cf, false, false)
 
+				if tcb.State.State == tcp.TIMEWAIT {
+					go manager.TimeWaitTimeOut(tcb, 30000)
+				}
+
 				//Reset tcb seq num; works for now but not sure correctness
 				//tcb.Seq = int(tcpHeader.AckNum)
 			}
@@ -293,7 +297,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			tcb, ok := manager.AddrToSocket[saddr]
 			//fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))
 			if ok {
-				if tcb.State.State == 4 {
+				if tcb.State.State == tcp.SYNRCVD {
 					tcb.RecvW.LastSeq = int(tcpHeader.SeqNum)
 					if tcb.Seq == int(tcpHeader.AckNum) {
 						tcb.Ack = int(tcpHeader.SeqNum)
@@ -307,14 +311,17 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 							tcb.SendCtrlMsg(cf, false, true)
 						}
 					}
-				} else if tcb.State.State == 5 {
+				} else if tcb.State.State == tcp.ESTAB {
 					// fmt.Println("reach here with idx ", int(tcpHeader.AckNum)-len(tcpPayload))
 					// tcb.ActualCheck[int(tcpHeader.AckNum)-len(tcpPayload)] = true
-				} else if tcb.State.State == 6 || tcb.State.State == 11 {
+				} else if tcb.State.State == tcp.FINWAIT1 || tcb.State.State == tcp.LASTACK {
 					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
 					tcb.State.State = newState
+				} else if tcb.State.State == tcp.CLOSING {
+					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+					tcb.State.State = newState
+					go manager.TimeWaitTimeOut(tcb, 30000)
 				}
-
 			}
 		}
 	} else {

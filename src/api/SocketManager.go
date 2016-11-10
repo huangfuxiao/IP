@@ -5,6 +5,7 @@ import (
 	".././pkg"
 	".././tcp"
 	"fmt"
+	"time"
 )
 
 type SocketManager struct {
@@ -47,7 +48,7 @@ func buildTestMananger(interfaceArray []*pkg.Interface) *SocketManager {
 }
 */
 
-func (manager *SocketManager) PrintSockets(interfaceArray []*pkg.Interface) {
+func (manager *SocketManager) PrintSockets() {
 	//Build a test manager for testing; Will be removed after testing
 	//manager = buildTestMananger(interfaceArray)
 
@@ -241,7 +242,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		//Block write
 		//Check tcb state first
 		if !(tcb.State.State == tcp.ESTAB) && !(tcb.State.State == tcp.CLOSEWAIT) && !(tcb.State.State == tcp.SYNRCVD) {
-			fmt.Println("Socket state is not ESTAB, FINWAIT1, nor SYNRCVD, and cannot be shutdown!\n")
+			fmt.Println("Socket state is not ESTAB, CLOSEWAIT, nor SYNRCVD, and cannot be shutdown!\n")
 			return -1
 		}
 
@@ -264,7 +265,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		//Block both write and read
 		//Check tcb state first
 		if !(tcb.State.State == tcp.ESTAB) && !(tcb.State.State == tcp.CLOSEWAIT) && !(tcb.State.State == tcp.SYNRCVD) {
-			fmt.Println("Socket state is not ESTAB, FINWAIT1, nor SYNRCVD, and cannot be shutdown!\n")
+			fmt.Println("Socket state is not ESTAB, CLOSEWAIT, nor SYNRCVD, and cannot be shutdown!\n")
 			return -1
 		}
 
@@ -293,17 +294,33 @@ func (manager *SocketManager) V_close(socket int) int {
 		return -1
 	}
 	//Socket closed already
-	if tcb.State.State == 1 {
+	if tcb.State.State == tcp.CLOSED {
 		fmt.Println("Socket closed already!\n")
 		return 0
+	} else if tcb.State.State == tcp.LISTEN {
+		fmt.Printf("V_accept() error on socket %d: Software caused connection abort", socket)
+		//Delete TCB
+		delete(manager.FdToSocket, socket)
+		delete(manager.AddrToSocket, tcb.Addr)
+		return 0
+	} else if tcb.State.State == tcp.SYNSENT {
+		//Delete TCB
+		delete(manager.FdToSocket, socket)
+		delete(manager.AddrToSocket, tcb.Addr)
+		return 0
+	} else {
+		manager.V_shutdown(socket, 3)
+		if tcb.State.State == tcp.FINWAIT2 {
+			newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+			tcb.State.State = newState
+			go manager.TimeWaitTimeOut(tcb, 1000)
+		} else if tcb.State.State == tcp.LASTACK {
+			newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+			tcb.State.State = newState
+		}
+
+		return 0
 	}
-	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
-	tcb.State.State = newState
-	tcb.SendCtrlMsg(cf, false, true)
-
-	//Wait for ACK
-
-	return 0
 }
 
 //helper Function
@@ -312,4 +329,29 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (manager *SocketManager) TimeWaitTimeOut(tcb *TCB, num int) {
+	for {
+		if tcb.State.State == tcp.TIMEWAIT {
+			fmt.Println("You are inside of the TimeWaitTimeOut loop!\n")
+			time.Sleep(time.Duration(num) * time.Millisecond)
+			newState, _ := tcp.StateMachine(tcb.State.State, 0, "")
+			tcb.State.State = newState
+			break
+		}
+
+	}
+}
+
+func (manager *SocketManager) GetEstabSocket(localAddr string, localPort int) int {
+	for {
+		for socket, tcb := range manager.FdToSocket {
+			if tcb.State.State == tcp.ESTAB {
+				if tcb.Addr.LocalAddr == localAddr && tcb.Addr.LocalPort == localPort {
+					return socket
+				}
+			}
+		}
+	}
 }

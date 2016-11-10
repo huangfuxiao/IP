@@ -287,13 +287,38 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				go tcb.DataACKThread()
 
 			}
+		} else if tcpHeader.HasFlag(tcp.FIN) {
+			fmt.Println("tcpHeader seqnum and ack num : ", int(tcpHeader.SeqNum), int(tcpHeader.AckNum))
+			fmt.Println("tcpHeader: ", tcpHeader)
+
+			saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
+			tcb, ok := manager.AddrToSocket[saddr]
+			if ok {
+				newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+				if newState == 0 {
+					return
+				}
+				tcb.State.State = newState
+				fmt.Println("This is the new state after FIN: ", newState)
+				tcb.Ack = int(tcpHeader.SeqNum) + 1
+				tcb.Check[int(tcpHeader.AckNum-1)] = true
+				fmt.Println("receive syn and ack ", tcb.Seq-1)
+				tcb.SendCtrlMsg(cf, false, false)
+
+				if tcb.State.State == tcp.TIMEWAIT {
+					go manager.TimeWaitTimeOut(tcb, 30000)
+				}
+
+				//Reset tcb seq num; works for now but not sure correctness
+				//tcb.Seq = int(tcpHeader.AckNum)
+			}
 		} else if tcpHeader.HasFlag(tcp.ACK) {
 			fmt.Println("receive ack only")
 			saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 			tcb, ok := manager.AddrToSocket[saddr]
 			//fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))
 			if ok {
-				if tcb.State.State == 4 {
+				if tcb.State.State == tcp.SYNRCVD {
 					tcb.RecvW.LastSeq = int(tcpHeader.SeqNum)
 					if tcb.Seq == int(tcpHeader.AckNum) {
 						tcb.Ack = int(tcpHeader.SeqNum)
@@ -310,6 +335,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 						go tcb.SendDataThread()
 						go tcb.DataACKThread()
 					}
+
 				} else if tcb.State.State == 5 {
 					//fmt.Println("reach here with idx ", int(tcpHeader.AckNum)-len(tcpPayload))
 					// tcb.ActualCheck[int(tcpHeader.AckNum)-len(tcpPayload)] = true
@@ -326,8 +352,15 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 						fmt.Println("bytes in flight after ack", tcb.SendW.BytesInFlight)
 					}
 
-				}
+				} else if tcb.State.State == tcp.FINWAIT1 || tcb.State.State == tcp.LASTACK {
+					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+					tcb.State.State = newState
+				} else if tcb.State.State == tcp.CLOSING {
+					newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+					tcb.State.State = newState
+					go manager.TimeWaitTimeOut(tcb, 30000)
 
+				}
 			}
 		}
 	} else {

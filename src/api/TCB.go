@@ -58,7 +58,7 @@ func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	return TCB{fd, s, add, seqn, ackn, Rw, Sw, node, u, PIF, ch, false, false, false}
 }
 
-func (tcb *TCB) SendCtrlMsg(ctrl int, c bool, lasths bool, ws int) {
+func (tcb *TCB) SendCtrlMsg(ctrl int, c bool, notestb bool, ws int) {
 	if c {
 		tcb.Check[tcb.Seq] = false
 	}
@@ -74,7 +74,7 @@ func (tcb *TCB) SendCtrlMsg(ctrl int, c bool, lasths bool, ws int) {
 	*/
 	//Search the interface and send to the actual address and port
 	//------------TO DO--------------
-	if lasths {
+	if notestb {
 		tcb.Seq += 1
 	}
 	v, ok := tcb.node.RouteTable[taddr.RemoteAddr]

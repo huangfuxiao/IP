@@ -178,9 +178,11 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 		count++
 	}
 	rw.LastSeq += count
-	//fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
-	//fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:])
-	//fmt.Println("......read.......", string(buf))
+
+	// fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
+	// fmt.Println("count ", count)
+	// fmt.Println("......read.......", string(buf))
+	// fmt.Println("lastbyteread after ", rw.LastByteRead)
 
 	//If canno read, count would be 0
 	return buf, count

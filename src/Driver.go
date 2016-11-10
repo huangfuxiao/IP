@@ -172,6 +172,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(4)
 
+	go thisSocketManager.CloseThread()
 	go runner.Receive_thread(udp, &thisNode, mutex, &thisSocketManager)
 	go runner.Send_thread(&thisNode, udp, mutex)
 	go runner.Timeout_thread(&thisNode, mutex)
@@ -252,6 +253,23 @@ func main() {
 						fmt.Printf("This is the string readin: %v\n", string(bufReadIn))
 					}
 				}
+			case "window":
+
+				if len(cmds) < 2 {
+
+					fmt.Println("Invalid socket id")
+					continue
+				}
+				socketFd, _ := strconv.Atoi(cmds[1])
+
+				ok, loc, rem := thisSocketManager.WindowSize(socketFd)
+				if ok == -1 {
+					fmt.Println("Invalid socket id")
+				} else {
+					fmt.Println("Loc: ", loc)
+					fmt.Println("Rem: ", rem)
+				}
+
 			case "sockets":
 				thisSocketManager.PrintSockets(thisNode.InterfaceArray)
 			case "accept":

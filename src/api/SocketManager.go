@@ -5,6 +5,7 @@ import (
 	".././pkg"
 	".././tcp"
 	"fmt"
+	"time"
 )
 
 type SocketManager struct {
@@ -132,7 +133,7 @@ func (manager *SocketManager) V_connect(socket int, addr string, port int) int {
 	nextState, ctrl := tcp.StateMachine(curState, 0, "active")
 	//fmt.Println(ctrl)
 	tcb.State.State = nextState
-	tcb.SendCtrlMsg(ctrl, true, true)
+	tcb.SendCtrlMsg(ctrl, true, true, 65535)
 
 	//SendCtrlMsg(saddr.LocalAddr, saddr.RemoteAddr, saddr.LocalPort, saddr.RemotePort, tcp.FIN, u)
 	//-----------
@@ -161,11 +162,16 @@ func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, 
 		fmt.Println("v_read() error: Operation not permitted")
 		return -1, buf
 	}
+	if tcb.State.State != 5 {
+		fmt.Println("v_read() error: Bad file descriptor")
+		return -1, buf
+	}
 	readLen := 0
 
 	//When receive buffer is empty
 	if tcb.RecvW.LastByteRead == tcb.RecvW.NextByteExpected-1 {
 		for {
+			//time.Sleep(500 * time.Millisecond)
 			retbuf, ret := tcb.RecvW.Read(nbyte)
 			readLen += ret
 			buf = append(buf, retbuf...)
@@ -182,7 +188,6 @@ func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, 
 
 	//Check if block flag is yes;
 	if check == "y" {
-		fmt.Println("reach y.......")
 		for readLen < nbyte {
 			addBuf, count := tcb.RecvW.Read(1)
 			buf = append(buf, addBuf...)
@@ -203,19 +208,30 @@ func (manager *SocketManager) V_write(socket int, data []byte) int {
 		fmt.Println("v_write() error: Operation not permitted")
 		return -1
 	}
-	if len(data) > tcb.SendW.AdvertisedWindow {
-		return -1
-	}
 
 	if tcb.State.State != 5 {
 		return -1
 	}
 
-	writeLen := tcb.SendW.Write(data)
-	if writeLen != -1 {
-		tcb.SendData(data)
+	length := len(data)
+	count := 0
+
+	for {
+		if count == length {
+			break
+		}
+		writeLen := tcb.SendW.Write(data)
+		count += writeLen
+		if count < length {
+			data = data[writeLen:]
+		}
+
 	}
-	return writeLen
+
+	// if count != -1 {
+	// 	tcb.SendData(data)
+	// }
+	return count
 }
 
 func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
@@ -240,7 +256,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf, false, true)
+		tcb.SendCtrlMsg(cf, false, true, 65535)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
@@ -253,7 +269,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 		tcb.State.State = newState
 		//Do we need to pass the tcpHeader.SeqNum to send FIN ???
-		tcb.SendCtrlMsg(cf, false, true)
+		tcb.SendCtrlMsg(cf, false, true, 65535)
 	}
 	return 0
 }
@@ -271,11 +287,20 @@ func (manager *SocketManager) v_close(socket int) int {
 	}
 	newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 	tcb.State.State = newState
-	tcb.SendCtrlMsg(cf, false, true)
+	tcb.SendCtrlMsg(cf, false, true, 65535)
 
 	//Wait for ACK
 
 	return 0
+}
+
+func (manager *SocketManager) WindowSize(socket int) (int, int, int) {
+	tcb, ok := manager.FdToSocket[socket]
+	if !ok {
+		return -1, -1, -1
+	} else {
+		return 0, tcb.RecvW.AdvertisedWindow(), tcb.SendW.AdvertisedWindow
+	}
 }
 
 //helper Function
@@ -284,4 +309,20 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func (manager *SocketManager) CloseThread() {
+	for {
+		time.Sleep(3000 * time.Millisecond)
+		for k, v := range manager.FdToSocket {
+
+			if v.ShouldClose == true {
+				saddr := v.Addr
+				delete(manager.FdToSocket, k)
+				delete(manager.AddrToSocket, saddr)
+			}
+
+		}
+
+	}
 }

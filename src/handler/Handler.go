@@ -262,7 +262,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 					newtcb.SendW.AdvertisedWindow = ws
 					manager.AddrToSocket[saddr] = newtcb
 
-					newtcb.SendCtrlMsg(cf, true, true, 65535)
+					newtcb.SendCtrlMsg(cf, true, true, tcb.RecvW.AdvertisedWindow())
 				}
 
 			}
@@ -282,7 +282,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				tcb.SendW.AdvertisedWindow = ws
 				tcb.Check[int(tcpHeader.AckNum-1)] = true
 				//fmt.Println("receive syn and ack ", tcb.Seq-1)
-				tcb.SendCtrlMsg(cf, false, false, 65535)
+				tcb.SendCtrlMsg(cf, false, false, tcb.RecvW.AdvertisedWindow())
 				go tcb.SendDataThread()
 				go tcb.DataACKThread()
 
@@ -303,7 +303,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				tcb.Ack = int(tcpHeader.SeqNum) + 1
 				tcb.Check[int(tcpHeader.AckNum-1)] = true
 				fmt.Println("receive syn and ack ", tcb.Seq-1)
-				tcb.SendCtrlMsg(cf, false, false)
+				tcb.SendCtrlMsg(cf, false, false, tcb.RecvW.AdvertisedWindow())
 
 				if tcb.State.State == tcp.TIMEWAIT {
 					go manager.TimeWaitTimeOut(tcb, 30000)

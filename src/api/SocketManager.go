@@ -365,6 +365,8 @@ func (manager *SocketManager) CloseThread() {
 			}
 
 		}
+	}
+}
 
 func (manager *SocketManager) TimeWaitTimeOut(tcb *TCB, num int) {
 	for {

@@ -20,10 +20,11 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 		fmt.Println("syntax error (usage: recvfile [filename] [port])\n")
 		return
 	}
-	fmt.Printf("Listen to port %d", port)
+	// fmt.Printf("Listen to port %d", port)
 	socketFd := thisSocketManager.V_socket(thisNode, udp)
 	thisSocketManager.V_bind(socketFd, "", port)
 	thisSocketManager.V_listen(socketFd)
+	time.Sleep(6000 * time.Millisecond)
 
 	//Find the new socket after connection is established
 	tcb, _ := thisSocketManager.FdToSocket[socketFd]
@@ -36,11 +37,10 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 
 	//Keep readin and write out, until the buffer is empty
 	for {
-		ok, bufReadIn := thisSocketManager.V_read(newSocket, 512, "n")
-		time.Sleep(1000 * time.Millisecond)
+		ok, bufReadIn := thisSocketManager.V_read(newSocket, 65534, "n")
 		if ok != -1 {
-			fmt.Println("Read bytes ", ok)
-			fmt.Printf("This is the string readin: %v\n", string(bufReadIn))
+			// fmt.Println("Read bytes ", ok)
+			// fmt.Printf("This is the string readin: %v\n", string(bufReadIn))
 			writeLines(f, bufReadIn)
 		}
 
@@ -52,10 +52,10 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	//If readbuffer is not empty, continue read
 	//This is silly but works
 	for {
-		ok, bufReadIn := thisSocketManager.V_read(newSocket, 1024, "n")
+		ok, bufReadIn := thisSocketManager.V_read(newSocket, 65534, "n")
 		if ok != -1 {
-			fmt.Println("Read bytes ", ok)
-			fmt.Printf("This is the string readin: %v\n", string(bufReadIn))
+			// fmt.Println("Read bytes ", ok)
+			// fmt.Printf("This is the string readin: %v\n", string(bufReadIn))
 			writeLines(f, bufReadIn)
 		}
 		if newTcb.RecvW.LastByteRead == newTcb.RecvW.NextByteExpected-1 {
@@ -75,7 +75,7 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	//Close connection at my side
 	newState, _ := tcp.StateMachine(newTcb.State.State, tcp.FIN, "")
 	newTcb.State.State = newState
-	fmt.Println("This is the new state after FIN: ", newState)
+	// fmt.Println("This is the new state after FIN: ", newState)
 	go thisSocketManager.TimeWaitTimeOut(newTcb, 1000)
 
 	for {
@@ -92,7 +92,7 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 func writeLines(f *os.File, toWrite []byte) {
 
 	// You can `Write` byte slices as you'd expect.
-	fmt.Println("This is the toWrite array ", toWrite)
+	// fmt.Println("This is the toWrite array ", toWrite)
 	_, err2 := f.Write(toWrite)
 	check(err2)
 

@@ -26,14 +26,14 @@ type RecvWindow struct {
 }
 
 func BuildSendWindow() SendWindow {
-	Sb := make([]byte, 10)
+	Sb := make([]byte, 65535)
 	// PIF := make([]tcp.TCPPackage, 0)
-	return SendWindow{65535, Sb, 0, 0, 0, 0, 10}
+	return SendWindow{65535, Sb, 0, 0, 0, 0, 65535}
 }
 
 func BuildRecvWindow() RecvWindow {
-	Rb := make([]byte, 10)
-	return RecvWindow{false, Rb, -1, 0, 1, 10}
+	Rb := make([]byte, 65535)
+	return RecvWindow{false, Rb, -1, 0, 1, 65535}
 
 }
 

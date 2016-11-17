@@ -6,6 +6,9 @@ import (
 )
 
 type SendWindow struct {
+	Back             bool
+	WSback           bool
+	WAback           bool
 	AdvertisedWindow int
 	SendBuffer       []byte
 	LastByteWritten  int
@@ -28,7 +31,7 @@ type RecvWindow struct {
 func BuildSendWindow() SendWindow {
 	Sb := make([]byte, 65535)
 	// PIF := make([]tcp.TCPPackage, 0)
-	return SendWindow{65535, Sb, 0, 0, 0, 0, 65535}
+	return SendWindow{false, false, false, 65535, Sb, 0, 0, 0, 0, 65535}
 }
 
 func BuildRecvWindow() RecvWindow {
@@ -45,6 +48,9 @@ func BuildRecvWindow() RecvWindow {
 // }
 
 func (sw *SendWindow) BytesCanBeWritten() int {
+	if sw.WAback {
+		return sw.Size - (sw.LastByteWritten + sw.Size - sw.LastByteAcked)
+	}
 	return sw.Size - (sw.LastByteWritten - sw.LastByteAcked)
 }
 
@@ -60,20 +66,23 @@ func (sw *SendWindow) Write(buf []byte) int {
 		//fmt.Println("less bytes can be written ", sw.BytesCanBeWritten())
 		num = sw.BytesCanBeWritten()
 	}
+	// fmt.Println("bytescanbewritten ", sw.BytesCanBeWritten())
+	// fmt.Println("num ", num)
 
 	i := 0
 	for i < num {
-		//fmt.Println(sw.LastByteWritten)
 
 		sw.SendBuffer[sw.LastByteWritten] = buf[i]
 		sw.LastByteWritten++
+		if sw.LastByteWritten >= sw.Size {
+			sw.WAback = true
+			sw.WSback = true
+			sw.LastByteWritten = 0
+		}
 		i++
 	}
 	//fmt.Println("Count after loop ", count)
 	//fmt.Println("sending buffer ", sw.SendBuffer[sw.LastByteAcked:sw.LastByteAcked+20])
-	fmt.Println("Last byte written index ", sw.LastByteWritten)
-	fmt.Println("Last byte acked index ", sw.LastByteAcked)
-	fmt.Println("Last byte sent", sw.LastByteSent)
 	//If cannot write, count would be 0
 	return num
 
@@ -98,7 +107,7 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	i := 0
 	//fmt.Println("write into receive buffer:", rw.LastByteRead)
 	for i < len(data) {
-		fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
+		//fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
 		index := rw.LastByteRead + idx + i
 		if index >= rw.Size {
 			index -= rw.Size
@@ -110,7 +119,6 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	i = 0
 
 	if order {
-		fmt.Println("INCREASE EXPECTED BEFORE ", rw.NextByteExpected)
 		for i < len(data) {
 			rw.NextByteExpected++
 			i++
@@ -119,12 +127,10 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 				rw.NextByteExpected = 0
 			}
 		}
-		fmt.Println("INCREASE EXPECTED AFTER ", rw.NextByteExpected)
 	}
 
 	if order {
 		for {
-			fmt.Println("INCREASE PADDING")
 			if rw.NextByteExpected == 0 {
 				if rw.RecvBuffer[rw.Size-1] == 0 {
 					break
@@ -147,9 +153,6 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 		}
 	}
 
-	fmt.Println(rw.LastByteRead)
-	fmt.Println(rw.NextByteExpected)
-	fmt.Println(rw.AdvertisedWindow())
 	// fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("recebuff remaining:", string(rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20]))
 	return 1, pad

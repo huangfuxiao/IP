@@ -26,12 +26,16 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	fmt.Println(socketFd)
 	thisSocketManager.V_bind(socketFd, "", -1)
 	thisSocketManager.V_connect(socketFd, cmds[2], port)
-	time.Sleep(12000 * time.Millisecond)
-	tcb, _ := thisSocketManager.FdToSocket[socketFd]
 
-	if tcb.State.State != tcp.ESTAB {
-		fmt.Println("v_connect() error: No route to host or invalid port\n")
-		return
+	//How to time out?????????????
+	for {
+		//time.Sleep(3000 * time.Millisecond)
+		tcb, _ := thisSocketManager.FdToSocket[socketFd]
+
+		if tcb.State.State == tcp.ESTAB {
+			//fmt.Println("v_connect() error: No route to host or invalid port\n")
+			break
+		}
 	}
 
 	//Read in the file
@@ -56,12 +60,13 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 		if ok > -1 {
 			fmt.Println("V_write successfully wrote ", ok, " bytes")
 		}
-		time.Sleep(20 * time.Millisecond)
-		//fmt.Println("V_write return -1, cannot write. Wait...")
+
+		//How long to sleep?
+		time.Sleep(25 * time.Millisecond)
 	}
 
 	//TO DO;
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 	thisSocketManager.V_close(socketFd)
 	// time.Sleep(12000 * time.Millisecond)
 	// thisSocketManager.V_shutdown(socketFd, 3)
@@ -90,32 +95,4 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	// }
 	// fmt.Println("FINISHED SENDFILE! ")
 
-}
-
-func readLines(path string) (lines []string, err error) {
-	var (
-		file   *os.File
-		part   []byte
-		prefix bool
-	)
-	if file, err = os.Open(path); err != nil {
-		fmt.Println("readLines error: cannot open file")
-		return
-	}
-	reader := bufio.NewReader(file)
-	buffer := bytes.NewBuffer(make([]byte, 0))
-	for {
-		if part, prefix, err = reader.ReadLine(); err != nil {
-			break
-		}
-		buffer.Write(part)
-		if !prefix {
-			lines = append(lines, buffer.String())
-			buffer.Reset()
-		}
-	}
-	if err == io.EOF {
-		err = nil
-	}
-	return
 }

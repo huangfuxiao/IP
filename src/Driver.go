@@ -191,9 +191,9 @@ func main() {
 			switch cmds[0] {
 			case "help":
 				printHelp()
-			case "interfaces":
+			case "interfaces", "li":
 				thisNode.PrintInterfaces()
-			case "routes":
+			case "routes", "lr":
 				thisNode.PrintRoutes()
 			case "down":
 				if len(cmds) == 1 {
@@ -217,7 +217,7 @@ func main() {
 					}
 					thisNode.InterfacesUp(id, mutex)
 				}
-			case "send":
+			case "send", "s", "w":
 				if len(cmds) < 3 {
 					fmt.Println("syntax error (usage: send [socket] [payload])\n")
 				} else {
@@ -236,7 +236,7 @@ func main() {
 						fmt.Println("V_write successfully wrote ", ok, " bytes")
 					}
 				}
-			case "recv":
+			case "recv", "r":
 				if len(cmds) < 4 {
 					fmt.Println("syntax error (usage: recv [interface] [bytes to read] [loop? (y/n), optional])\n")
 				} else {
@@ -270,9 +270,9 @@ func main() {
 					fmt.Println("Rem: ", rem)
 				}
 
-			case "sockets":
+			case "sockets", "ls":
 				thisSocketManager.PrintSockets()
-			case "accept":
+			case "accept", "a":
 				if len(cmds) < 2 {
 					fmt.Println("syntax error (usage: accept [port])\n")
 				} else {
@@ -286,7 +286,7 @@ func main() {
 					thisSocketManager.V_bind(socketFd, "", port)
 					thisSocketManager.V_listen(socketFd)
 				}
-			case "connect":
+			case "connect", "c":
 				if len(cmds) < 3 {
 					fmt.Println("syntax error (usage: connect [ip address] [port])\n")
 				} else {

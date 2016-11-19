@@ -229,6 +229,8 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 	tempbuff[17] = 0
 	recvCheckSum := tcp.Csum(tempbuff, api.To4byte(srcIpAddr), api.To4byte(dstIpAddr))
 	if tcpHeader.Checksum != recvCheckSum {
+		fmt.Println(tcpHeader.Checksum)
+		fmt.Println(recvCheckSum)
 
 		fmt.Println("tcp Checksum error!")
 		return
@@ -374,10 +376,13 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			}
 		}
 	} else {
+		fmt.Println("receive data in handler ", len(tcpPayload))
 
 		saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 		tcb, ok := manager.AddrToSocket[saddr]
+
 		if ok && tcb.State.State == 5 && len(tcpPayload) <= tcb.RecvW.AdvertisedWindow() {
+			fmt.Println("Handler receive order or not ", tcpHeader.SeqNum, tcb.Ack)
 
 			if int(tcpHeader.SeqNum) == tcb.Ack {
 				// Write into the receive buffer
@@ -385,13 +390,17 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				su, pad := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), true)
 				if su == 1 {
 					//fmt.Println("success and send ack")
+					fmt.Println("ACK before ", tcb.Ack)
 					tcb.Ack = int(tcpHeader.SeqNum) + len(tcpPayload) + pad
+					fmt.Println("pad ", pad)
+					fmt.Println("ACK after ", tcb.Ack)
 					tcb.SendW.AdvertisedWindow = ws
 
 					//fmt.Println(tcpHeader.SeqNum)
 					tcb.SendCtrlMsg(tcp.ACK, false, false, tcb.RecvW.AdvertisedWindow())
 				}
 			} else {
+
 				su, _ := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), false)
 				//fmt.Println("su ", su)
 				//tcb.Seq += len(tcpPayload)

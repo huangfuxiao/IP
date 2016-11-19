@@ -159,6 +159,10 @@ func (tcb *TCB) SendData(payload []byte, ws int) {
 	tcpbuf := tcp.TCPPkgToBuffer(tcpp2)
 	tcb.Seq += len(payload)
 
+	if tcb.Seq > 65535 {
+		tcb.Seq -= 65536
+	}
+
 	v, ok := tcb.node.RouteTable[taddr.RemoteAddr]
 	if ok {
 		for _, link := range tcb.node.InterfaceArray {
@@ -218,8 +222,8 @@ func CheckACK(idx int, tcb *TCB, count int, ipp ipv4.IpPackage, addr string, por
 func (tcb *TCB) DataACKThread() {
 	for {
 		time.Sleep(3000 * time.Millisecond)
-		for k, v := range tcb.PIFCheck {
-			fmt.Println("retransmission seq ", k)
+		for _, v := range tcb.PIFCheck {
+			//fmt.Println("retransmission seq ", k)
 			if v.Count < 3 {
 				tcb.u.Send(v.Ipp, v.Addr, v.Port)
 				v.Count += 1

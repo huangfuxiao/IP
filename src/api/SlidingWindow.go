@@ -3,6 +3,7 @@ package api
 import (
 	//"../tcp"
 	"fmt"
+	"sync"
 )
 
 type SendWindow struct {
@@ -21,11 +22,13 @@ type SendWindow struct {
 
 type RecvWindow struct {
 	back             bool
+	Fill             []bool
 	RecvBuffer       []byte
 	LastSeq          int
 	LastByteRead     int
 	NextByteExpected int
 	Size             int
+	mutex            *sync.RWMutex
 }
 
 func BuildSendWindow() SendWindow {
@@ -36,8 +39,8 @@ func BuildSendWindow() SendWindow {
 
 func BuildRecvWindow() RecvWindow {
 	Rb := make([]byte, 65535)
-	return RecvWindow{false, Rb, -1, 0, 1, 65535}
-
+	Fil := make([]bool, 65535)
+	return RecvWindow{false, Fil, Rb, -1, 0, 1, 65535, &sync.RWMutex{}}
 }
 
 // func (sw *SendWindow) CheckSendAvaliable() bool {
@@ -98,21 +101,36 @@ func (rw *RecvWindow) AdvertisedWindow() int {
 // Write the received data into the receiving window buffer
 func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	// TODO IMPLEMENTATION
+	//fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
+	rw.mutex.Lock()
+	defer rw.mutex.Unlock()
 	pad := 0
 	if len(data) > rw.AdvertisedWindow() {
 		fmt.Println("data length larger than advertise window")
 		return 0, 0
 	}
 	idx := se - rw.LastSeq
+	fmt.Println("idx before ", idx)
+	idx %= rw.Size
 	i := 0
 	//fmt.Println("write into receive buffer:", rw.LastByteRead)
 	for i < len(data) {
 		//fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
-		index := rw.LastByteRead + idx + i
+		n := rw.NextByteExpected - 1
+		if rw.NextByteExpected == 0 {
+			n = rw.Size - 1
+		}
+
+		index := n + idx + i
 		if index >= rw.Size {
 			index -= rw.Size
 		}
+		//fmt.Println("write rb index  and i ", index, i)
+		if index < 0 {
+			fmt.Println("error index ", index)
+		}
 		rw.RecvBuffer[index] = data[i]
+		rw.Fill[index] = true
 		i++
 	}
 	//fmt.Println(rw.RecvBuffer[rw.LastByteRead : rw.LastByteRead+20])
@@ -121,6 +139,7 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	if order {
 		for i < len(data) {
 			rw.NextByteExpected++
+			rw.LastSeq++
 			i++
 			if rw.NextByteExpected == rw.Size {
 				rw.back = true
@@ -129,61 +148,79 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 		}
 	}
 
-	if order {
-		for {
-			if rw.NextByteExpected == 0 {
-				if rw.RecvBuffer[rw.Size-1] == 0 {
+	/*
+		if order {
+			for {
+				fmt.Println("increase pad ", pad)
+				if rw.NextByteExpected == 0 {
+					if rw.Fill[rw.Size-1] == false {
+						break
+					}
+				} else {
+					if rw.Fill[rw.NextByteExpected-1] == false {
+						break
+					}
+				}
+				if rw.NextByteExpected == rw.LastByteRead+1 {
 					break
 				}
-			} else {
-				if rw.RecvBuffer[rw.NextByteExpected-1] == 0 {
-					break
+				rw.NextByteExpected++
+				rw.LastSeq++
+				if rw.NextByteExpected == rw.Size {
+					rw.back = true
+					rw.NextByteExpected = 0
 				}
-			}
-			if rw.NextByteExpected == rw.LastByteRead+1 {
-				break
-			}
-			rw.NextByteExpected++
-			if rw.NextByteExpected == rw.Size {
-				rw.back = true
-				rw.NextByteExpected = 0
-			}
-			pad++
+				pad++
 
-		}
-	}
+			}
+		}*/
 
-	// fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
+	fmt.Println("last byte read ", rw.LastByteRead)
+	fmt.Println("last Next expect:", rw.NextByteExpected)
+	fmt.Println("sequence ", se, rw.LastSeq)
+	fmt.Println("gap ", rw.back)
+
+	//fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("recebuff remaining:", string(rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20]))
 	return 1, pad
 
 }
 
+func (rw *RecvWindow) ReadableSize() int {
+	return rw.Size - rw.AdvertisedWindow()
+}
+
 func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
+	rw.mutex.Lock()
+	defer rw.mutex.Unlock()
 	buf := make([]byte, 0)
 	count := 0
+
+	tempsize := rw.ReadableSize()
+	if nbyte > tempsize {
+		nbyte = tempsize
+	}
+
 	// fmt.Println("lastbyteread before ", rw.LastByteRead)
 	// fmt.Println("recebuff remaining before:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	for i := 0; i < nbyte; i++ {
-		if rw.back == false {
-			if rw.LastByteRead == rw.NextByteExpected-1 {
-				break
-			}
-		}
+		// if rw.back == false {
+		// 	if rw.LastByteRead == rw.NextByteExpected-1 {
+		// 		break
+		// 	}
+		// }
 
 		buf = append(buf, rw.RecvBuffer[rw.LastByteRead])
 		rw.LastByteRead++
-		rw.RecvBuffer[rw.LastByteRead-1] = 0
+		rw.Fill[rw.LastByteRead-1] = false
 		if rw.LastByteRead == rw.Size {
 			rw.back = false
 			rw.LastByteRead = 0
 		}
 		count++
 	}
-	rw.LastSeq += count
 
 	// fmt.Println("recebuff remaining after:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
-	// fmt.Println("count ", count)
 	// fmt.Println("......read.......", string(buf))
 	// fmt.Println("lastbyteread after ", rw.LastByteRead)
 

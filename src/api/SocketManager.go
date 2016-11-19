@@ -162,19 +162,12 @@ func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, 
 		fmt.Println("v_read() error: Operation not permitted")
 		return -1, buf
 	}
-<<<<<<< HEAD
 	/*
 		if tcb.State.State != 5 {
 			fmt.Println("v_read() error: Bad file descriptor")
 			return -1, buf
 		}*/
-=======
-	if tcb.State.State < 5 {
-		fmt.Println(tcb.State.State)
-		fmt.Println("v_read() error: Bad file descriptor")
-		return -1, buf
-	}
->>>>>>> fe7d0c2083f17960d7eb4b16b6db33a1ffff990e
+
 	readLen := 0
 
 	//When receive buffer is empty

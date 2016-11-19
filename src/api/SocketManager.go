@@ -162,11 +162,19 @@ func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, 
 		fmt.Println("v_read() error: Operation not permitted")
 		return -1, buf
 	}
+<<<<<<< HEAD
 	/*
 		if tcb.State.State != 5 {
 			fmt.Println("v_read() error: Bad file descriptor")
 			return -1, buf
 		}*/
+=======
+	if tcb.State.State < 5 {
+		fmt.Println(tcb.State.State)
+		fmt.Println("v_read() error: Bad file descriptor")
+		return -1, buf
+	}
+>>>>>>> fe7d0c2083f17960d7eb4b16b6db33a1ffff990e
 	readLen := 0
 
 	//When receive buffer is empty
@@ -211,9 +219,9 @@ func (manager *SocketManager) V_write(socket int, data []byte) int {
 		return -1
 	}
 
-	if tcb.State.State != 5 {
-		return -1
-	}
+	// if tcb.State.State != 5 {
+	// 	return -1
+	// }
 
 	length := len(data)
 	count := 0
@@ -330,7 +338,7 @@ func (manager *SocketManager) V_close(socket int) int {
 		if tcb.State.State == tcp.FINWAIT2 {
 			newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 			tcb.State.State = newState
-			go manager.TimeWaitTimeOut(tcb, 1000)
+			go manager.TimeWaitTimeOut(tcb, 10)
 		} else if tcb.State.State == tcp.LASTACK {
 			newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
 			tcb.State.State = newState
@@ -374,11 +382,12 @@ func (manager *SocketManager) CloseThread() {
 func (manager *SocketManager) TimeWaitTimeOut(tcb *TCB, num int) {
 	for {
 		if tcb.State.State == tcp.TIMEWAIT {
-			fmt.Println("You are inside of the TimeWaitTimeOut loop!\n")
+			fmt.Println("You are inside of th TimeWaitTimeOut loop!\n")
 			time.Sleep(time.Duration(num) * time.Millisecond)
 			newState, _ := tcp.StateMachine(tcb.State.State, 0, "")
 			tcb.State.State = newState
-			break
+			fmt.Println("You are out of the TimeWaitTimeOut loop!\n")
+			return
 		}
 
 	}

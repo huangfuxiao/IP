@@ -14,22 +14,20 @@ Language: Go
 ## 1. Node Interface:
 
 #### Structures:
-	    Node:
-	    	LocalAddr 		string
-	    	Port      		int
-	    	InterfaceArray  []*Interface 
-	    	RouteTable 		map[string]Entry
-	    Interface:
-			Status    		int
-			Src        		string
-			Dest       		string
-			RemotePort 		int
-			RemoteAddr 		string
-		Entry:
-			Dest 			string
-			Next 			string
-			Cost 			int
-			Ttl  			int64	
+	   Fd          int
+	State       tcp.State
+	Addr        SockAddr
+	Seq         int
+	Ack         int
+	RecvW       RecvWindow
+	SendW       SendWindow
+	node        *pkg.Node
+	u           linklayer.UDPLink
+	PIFCheck    map[int]*PkgInFlight
+	Check       map[int]bool
+	BlockWrite  bool
+	BlockRead   bool
+	ShouldClose bool
 
 #### Functions:
 * PrintInterfaces()

@@ -5,10 +5,10 @@ import (
 	"../linklayer"
 	"../pkg"
 	"../tcp"
-	"bufio"
-	"bytes"
+	//"bufio"
+	//"bytes"
 	"fmt"
-	"io"
+	//"io"
 	"os"
 	"strconv"
 	"sync"
@@ -56,13 +56,11 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 		toSend = toSend[:n]
 
 		ok := thisSocketManager.V_write(socketFd, toSend)
-		fmt.Println("This is the toSend string: ", toSend)
 		if ok > -1 {
-			fmt.Println("V_write successfully wrote ", ok, " bytes")
+			//fmt.Println("V_write successfully wrote ", ok, " bytes")
 		}
-
 		//How long to sleep?
-		time.Sleep(25 * time.Millisecond)
+		//time.Sleep(10 * time.Millisecond)
 	}
 
 	//TO DO;
@@ -94,5 +92,4 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 
 	// }
 	// fmt.Println("FINISHED SENDFILE! ")
-
 }

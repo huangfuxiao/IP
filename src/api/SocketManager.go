@@ -226,6 +226,7 @@ func (manager *SocketManager) V_write(socket int, data []byte) int {
 		writeLen := tcb.SendW.Write(data)
 		count += writeLen
 		if count < length {
+			//fmt.Println("writeLen ", writeLen)
 			data = data[writeLen:]
 		}
 

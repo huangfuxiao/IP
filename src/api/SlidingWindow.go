@@ -18,6 +18,7 @@ type SendWindow struct {
 	// PkgInFlight      []tcp.TCPPackage
 	BytesInFlight int
 	Size          int
+	Mutex         *sync.RWMutex
 }
 
 type RecvWindow struct {
@@ -34,7 +35,7 @@ type RecvWindow struct {
 func BuildSendWindow() SendWindow {
 	Sb := make([]byte, 65535)
 	// PIF := make([]tcp.TCPPackage, 0)
-	return SendWindow{false, false, false, 65535, Sb, 0, 0, 0, 0, 65535}
+	return SendWindow{false, false, false, 65535, Sb, 0, 0, 0, 0, 65535, &sync.RWMutex{}}
 }
 
 func BuildRecvWindow() RecvWindow {
@@ -51,6 +52,8 @@ func BuildRecvWindow() RecvWindow {
 // }
 
 func (sw *SendWindow) BytesCanBeWritten() int {
+	sw.Mutex.RLock()
+	defer sw.Mutex.RUnlock()
 	if sw.WAback {
 		return sw.Size - (sw.LastByteWritten + sw.Size - sw.LastByteAcked)
 	}
@@ -58,23 +61,41 @@ func (sw *SendWindow) BytesCanBeWritten() int {
 }
 
 func (sw *SendWindow) EffectiveWindow() int {
+	sw.Mutex.RLock()
+	defer sw.Mutex.RUnlock()
 	return sw.AdvertisedWindow - sw.BytesInFlight
 }
 
 func (sw *SendWindow) Write(buf []byte) int {
+
 	num := len(buf)
 	//fmt.Println("length of buf in Write ", num)
 	//fmt.Println("length that can be written ", sw.BytesCanBeWritten())
-	if sw.BytesCanBeWritten() < num {
+	writebytes := sw.BytesCanBeWritten()
+	if writebytes < num {
 		//fmt.Println("less bytes can be written ", sw.BytesCanBeWritten())
-		num = sw.BytesCanBeWritten()
+		//fmt.Println("num ", num)
+		//fmt.Println("buf to write ", buf)
+		num = writebytes
+		//fmt.Println("bcbw ", writebytes)
+
+		// if writebytes < 0 {
+		// 	fmt.Println("bcbw ", writebytes)
+		// 	fmt.Println("lbw ", sw.LastByteWritten)
+		// 	fmt.Println("lba ", sw.LastByteAcked)
+		// }
 	}
 	// fmt.Println("bytescanbewritten ", sw.BytesCanBeWritten())
 	// fmt.Println("num ", num)
-
+	sw.Mutex.Lock()
+	defer sw.Mutex.Unlock()
 	i := 0
 	for i < num {
+		if sw.LastByteWritten < 0 || i < 0 || sw.LastByteWritten >= 65535 || i > len(buf) {
 
+			fmt.Println("sw write lbw ", sw.LastByteWritten)
+			fmt.Println("sw write i ", i)
+		}
 		sw.SendBuffer[sw.LastByteWritten] = buf[i]
 		sw.LastByteWritten++
 		if sw.LastByteWritten >= sw.Size {

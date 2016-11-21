@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,11 +24,16 @@ type TCB struct {
 	SendW       SendWindow
 	node        *pkg.Node
 	u           linklayer.UDPLink
-	PIFCheck    map[int]*PkgInFlight
+	PIFCheck    PIFCheck
 	Check       map[int]bool
 	BlockWrite  bool
 	BlockRead   bool
 	ShouldClose bool
+}
+
+type PIFCheck struct {
+	PIF   map[uint32]*PkgInFlight
+	Mutex *sync.RWMutex
 }
 
 type PkgInFlight struct {
@@ -47,7 +53,8 @@ type SockAddr struct {
 
 func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	//PIF := make([]tcp.TCPPackage)
-	PIF := make(map[int]*PkgInFlight)
+	PIF := make(map[uint32]*PkgInFlight)
+	PC := PIFCheck{PIF, &sync.RWMutex{}}
 	Rw := BuildRecvWindow()
 	Sw := BuildSendWindow()
 	ch := make(map[int]bool)
@@ -55,7 +62,7 @@ func BuildTCB(fd int, node *pkg.Node, u linklayer.UDPLink) TCB {
 	add := SockAddr{"0.0.0.0", 0, "0.0.0.0", 0}
 	seqn := int(rand.Uint32())
 	ackn := 0
-	return TCB{fd, s, add, seqn, ackn, Rw, Sw, node, u, PIF, ch, false, false, false}
+	return TCB{fd, s, add, seqn, ackn, Rw, Sw, node, u, PC, ch, false, false, false}
 }
 
 func (tcb *TCB) SendCtrlMsg(ctrl int, c bool, notestb bool, ws int) {
@@ -105,7 +112,24 @@ func (tcb *TCB) SendDataThread() {
 	for {
 		// fmt.Println("Last Byte Sent ", tcb.SendW.LastByteSent)
 		// fmt.Println("Last Byte Written ", tcb.SendW.LastByteWritten)
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
+		if len(tcb.PIFCheck.PIF) != 0 {
+			tcb.PIFCheck.Mutex.RLock()
+			for k, v := range tcb.PIFCheck.PIF {
+				fmt.Println("retransmission seq ", int(k)-v.Length)
+				//if v.Count < 3 {
+				tcb.u.Send(v.Ipp, v.Addr, v.Port)
+				v.Count += 1
+				//fmt.Println("count, ", v.Count)
+
+				// } else {
+				// 	tcb.ShouldClose = true
+				//}
+
+			}
+			tcb.PIFCheck.Mutex.RUnlock()
+			continue
+		}
 		tcb.SendW.Mutex.RLock()
 		if tcb.SendW.WSback {
 			if tcb.SendW.LastByteSent+tcb.SendW.Size == tcb.SendW.LastByteWritten {
@@ -128,6 +152,9 @@ func (tcb *TCB) SendDataThread() {
 		}
 		if bytesToSent > 1024 {
 			bytesToSent = 1024
+		}
+		if bytesToSent == 1023 || bytesToSent == 1021 {
+			bytesToSent -= 1
 		}
 		//fmt.Println("effective window ", bytesToSent)
 		payload := make([]byte, 0)
@@ -184,8 +211,10 @@ func (tcb *TCB) SendData(payload []byte, ws int) {
 				}
 				ipPkt := ipv4.BuildIpPacket(tcpbuf, 6, taddr.LocalAddr, taddr.RemoteAddr)
 				tcb.u.Send(ipPkt, link.RemoteAddr, link.RemotePort)
-				tcb.PIFCheck[tcb.Seq] = &PkgInFlight{len(payload), 0, ipPkt, link.RemoteAddr, link.RemotePort}
-				fmt.Println("tcb seq send ", tcb.Seq)
+				tcb.PIFCheck.Mutex.Lock()
+				tcb.PIFCheck.PIF[uint32(tcb.Seq)] = &PkgInFlight{len(payload), 0, ipPkt, link.RemoteAddr, link.RemotePort}
+				tcb.PIFCheck.Mutex.Unlock()
+				fmt.Println("tcb seq send ", tcb.Seq-len(payload), len(payload))
 				//if c {
 				// fmt.Println("Check seq after, ", tcb.Seq-len(payload))
 				// go CheckACK(tcb.Seq, tcb, 0, ipPkt, link.RemoteAddr, link.RemotePort)
@@ -234,9 +263,10 @@ func CheckACK(idx int, tcb *TCB, count int, ipp ipv4.IpPackage, addr string, por
 
 func (tcb *TCB) DataACKThread() {
 	for {
-		time.Sleep(3000 * time.Millisecond)
-		for k, v := range tcb.PIFCheck {
-			fmt.Println("retransmission seq ", k)
+		time.Sleep(500 * time.Millisecond)
+		tcb.PIFCheck.Mutex.RLock()
+		for k, v := range tcb.PIFCheck.PIF {
+			fmt.Println("retransmission seq ", int(k)-v.Length)
 			//if v.Count < 3 {
 			tcb.u.Send(v.Ipp, v.Addr, v.Port)
 			v.Count += 1
@@ -247,6 +277,7 @@ func (tcb *TCB) DataACKThread() {
 			//}
 
 		}
+		tcb.PIFCheck.Mutex.RUnlock()
 
 	}
 }

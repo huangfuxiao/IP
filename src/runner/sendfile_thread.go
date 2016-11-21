@@ -62,9 +62,9 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 		//How long to sleep?
 		//time.Sleep(10 * time.Millisecond)
 	}
-
+	fmt.Println("FINISHED SENDFILE! ")
 	//TO DO;
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	thisSocketManager.V_close(socketFd)
 	// time.Sleep(12000 * time.Millisecond)
 	// thisSocketManager.V_shutdown(socketFd, 3)
@@ -80,7 +80,7 @@ func Sendfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	// 	newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
 	// 	tcb.State.State = newState
 	// }
-	fmt.Println("FINISHED SENDFILE! ")
+
 	//go thisSocketManager.TimeWaitTimeOut(tcb, 1000)
 
 	// for {

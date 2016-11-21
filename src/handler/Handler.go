@@ -209,7 +209,7 @@ func RunRIPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 
 //IP protocol=6
 func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mutex *sync.RWMutex, manager *api.SocketManager) {
-	//fmt.Println("RECEIVE !!!!!!!!")
+	fmt.Println("RECEIVE !!!!!!!!")
 
 	dstIpAddr := ipPkt.IpHeader.Dst.String()
 	srcIpAddr := ipPkt.IpHeader.Src.String()
@@ -288,7 +288,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				//fmt.Println("receive syn and ack ", tcb.Seq-1)
 				tcb.SendCtrlMsg(cf, false, false, tcb.RecvW.AdvertisedWindow())
 				go tcb.SendDataThread()
-				go tcb.DataACKThread()
+				//go tcb.DataACKThread()
 
 			}
 		} else if tcpHeader.HasFlag(tcp.FIN) {
@@ -318,6 +318,7 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 			}
 		} else if tcpHeader.HasFlag(tcp.ACK) {
 			fmt.Println("receive ack only")
+			fmt.Println("receive ack seq num ", tcpHeader.SeqNum)
 			saddr := api.SockAddr{dstIpAddr, dstPort, srcIpAddr, srcPort}
 			tcb, ok := manager.AddrToSocket[saddr]
 			//fmt.Println("current seqnum and ack num : ", tcb.Seq, int(tcpHeader.AckNum))
@@ -337,31 +338,41 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 							tcb.SendCtrlMsg(cf, false, true, 65535)
 						}
 						go tcb.SendDataThread()
-						go tcb.DataACKThread()
+						//go tcb.DataACKThread()
 					}
 
 				} else if tcb.State.State == 5 {
 					// fmt.Println("reach here with idx ", int(tcpHeader.AckNum))
 					// fmt.Println("recent PIF ", tcb.PIFCheck)
 					//fmt.Println("receive seq and recent ack ", tcpHeader.SeqNum, tcb.Ack)
-					tcb.SendW.AdvertisedWindow = ws
+
 					fmt.Println("receive ack ", tcpHeader.AckNum)
+					tcb.PIFCheck.Mutex.RLock()
+					_, ok := tcb.PIFCheck.PIF[tcpHeader.AckNum]
+					tcb.PIFCheck.Mutex.RUnlock()
+					if ok {
+						tcb.SendW.AdvertisedWindow = ws
+						for k, v := range tcb.PIFCheck.PIF {
+							//tcb.PIFCheck.Mutex.RLock()
 
-					for k, v := range tcb.PIFCheck {
-						fmt.Println("find PIFCheck ack ", k)
-						if k <= int(tcpHeader.AckNum) {
-							tcb.SendW.Mutex.Lock()
-							tcb.SendW.BytesInFlight -= v.Length
-							tcb.SendW.LastByteAcked += v.Length
-							if tcb.SendW.LastByteAcked >= tcb.SendW.Size {
-								tcb.SendW.WAback = false
-								tcb.SendW.Back = false
-								tcb.SendW.LastByteAcked -= tcb.SendW.Size
+							if k <= tcpHeader.AckNum {
+								fmt.Println("find PIFCheck ack ", k)
+								tcb.SendW.Mutex.Lock()
+								tcb.SendW.BytesInFlight -= v.Length
+								tcb.SendW.LastByteAcked += v.Length
+								if tcb.SendW.LastByteAcked >= tcb.SendW.Size {
+									tcb.SendW.WAback = false
+									tcb.SendW.Back = false
+									tcb.SendW.LastByteAcked -= tcb.SendW.Size
+								}
+								tcb.SendW.Mutex.Unlock()
+								//tcb.PIFCheck.Mutex.RUnlock()
+								tcb.PIFCheck.Mutex.Lock()
+								delete(tcb.PIFCheck.PIF, k)
+								tcb.PIFCheck.Mutex.Unlock()
 							}
-							tcb.SendW.Mutex.Unlock()
-							delete(tcb.PIFCheck, k)
-						}
 
+						}
 					}
 
 					// fmt.Println("bytes can be written now", tcb.SendW.BytesCanBeWritten())
@@ -394,23 +405,28 @@ func RunTCPHandler(ipPkt ipv4.IpPackage, node *pkg.Node, u linklayer.UDPLink, mu
 				su, pad := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), true)
 				if su == 1 {
 					//fmt.Println("success and send ack")
-					fmt.Println("ACK before ", tcb.Ack)
 					tcb.Ack = int(tcpHeader.SeqNum) + len(tcpPayload) + pad
-					fmt.Println("pad ", pad)
-					fmt.Println("ACK after ", tcb.Ack)
+
 					tcb.SendW.AdvertisedWindow = ws
 
 					//fmt.Println(tcpHeader.SeqNum)
-					tcb.SendCtrlMsg(tcp.ACK, false, false, tcb.RecvW.AdvertisedWindow())
+					fmt.Println("order")
+					fmt.Println("recent ack sendback ", tcb.Ack)
+					temp := tcb.RecvW.AdvertisedWindow()
+					fmt.Println("recv adver window ", temp)
+					tcb.SendCtrlMsg(tcp.ACK, false, false, temp)
 				}
 			} else {
-
+				fmt.Println("outof order")
 				su, _ := tcb.RecvW.Receive(tcpPayload, int(tcpHeader.SeqNum), false)
-				//fmt.Println("su ", su)
+				fmt.Println("su ", su)
+				fmt.Println("recent ack sendback ", tcb.Ack)
 				//tcb.Seq += len(tcpPayload)
 				if su == 1 {
 					tcb.SendW.AdvertisedWindow = ws
-					tcb.SendCtrlMsg(tcp.ACK, false, false, tcb.RecvW.AdvertisedWindow())
+					temp := tcb.RecvW.AdvertisedWindow()
+					fmt.Println("recv adver window ", temp)
+					tcb.SendCtrlMsg(tcp.ACK, false, false, temp)
 				}
 			}
 

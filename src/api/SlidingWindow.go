@@ -123,56 +123,57 @@ func (rw *RecvWindow) AdvertisedWindow() int {
 func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 	// TODO IMPLEMENTATION
 	//fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
-	rw.mutex.Lock()
-	defer rw.mutex.Unlock()
 	pad := 0
-	if len(data) > rw.AdvertisedWindow() {
-		fmt.Println("data length larger than advertise window")
-		return 0, 0
-	}
-	idx := se - rw.LastSeq
-	fmt.Println("idx before ", idx)
-	idx %= rw.Size
-	i := 0
-	//fmt.Println("write into receive buffer:", rw.LastByteRead)
-	for i < len(data) {
-		//fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
-		n := rw.NextByteExpected - 1
-		if rw.NextByteExpected == 0 {
-			n = rw.Size - 1
-		}
+	if se >= rw.LastSeq {
+		rw.mutex.Lock()
+		defer rw.mutex.Unlock()
 
-		index := n + idx + i
-		if index >= rw.Size {
-			index -= rw.Size
+		if len(data) > rw.AdvertisedWindow() {
+			fmt.Println("data length larger than advertise window")
+			return 0, 0
 		}
-		//fmt.Println("write rb index  and i ", index, i)
-		if index < 0 {
-			fmt.Println("error index ", index)
-		}
-		rw.RecvBuffer[index] = data[i]
-		rw.Fill[index] = true
-		i++
-	}
-	//fmt.Println(rw.RecvBuffer[rw.LastByteRead : rw.LastByteRead+20])
-	i = 0
-
-	if order {
+		idx := se - rw.LastSeq
+		fmt.Println("idx before ", idx)
+		idx %= rw.Size
+		i := 0
+		//fmt.Println("write into receive buffer:", rw.LastByteRead)
 		for i < len(data) {
-			rw.NextByteExpected++
-			rw.LastSeq++
+			//fmt.Println("index and data ", rw.LastByteRead+idx+i, data[i])
+			n := rw.NextByteExpected - 1
+			if rw.NextByteExpected == 0 {
+				n = rw.Size - 1
+			}
+
+			index := n + idx + i
+			if index >= rw.Size {
+				index -= rw.Size
+			}
+			//fmt.Println("write rb index  and i ", index, i)
+			if index < 0 {
+				fmt.Println("error index ", index)
+			}
+			rw.RecvBuffer[index] = data[i]
+			rw.Fill[index] = true
 			i++
-			if rw.NextByteExpected == rw.Size {
-				rw.back = true
-				rw.NextByteExpected = 0
+		}
+		//fmt.Println(rw.RecvBuffer[rw.LastByteRead : rw.LastByteRead+20])
+		i = 0
+
+		if order {
+			for i < len(data) {
+				rw.NextByteExpected++
+				rw.LastSeq++
+				i++
+				if rw.NextByteExpected == rw.Size {
+					rw.back = true
+					rw.NextByteExpected = 0
+				}
 			}
 		}
-	}
 
-	/*
 		if order {
 			for {
-				fmt.Println("increase pad ", pad)
+
 				if rw.NextByteExpected == 0 {
 					if rw.Fill[rw.Size-1] == false {
 						break
@@ -194,13 +195,13 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 				pad++
 
 			}
-		}*/
+		}
 
-	fmt.Println("last byte read ", rw.LastByteRead)
-	fmt.Println("last Next expect:", rw.NextByteExpected)
-	fmt.Println("sequence ", se, rw.LastSeq)
-	fmt.Println("gap ", rw.back)
-
+		fmt.Println("last byte read ", rw.LastByteRead)
+		fmt.Println("last Next expect:", rw.NextByteExpected)
+		fmt.Println("sequence ", se, rw.LastSeq)
+		fmt.Println("gap ", rw.back)
+	}
 	//fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("recebuff remaining:", string(rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20]))
 	return 1, pad
@@ -232,8 +233,8 @@ func (rw *RecvWindow) Read(nbyte int) ([]byte, int) {
 		// }
 
 		buf = append(buf, rw.RecvBuffer[rw.LastByteRead])
+		rw.Fill[rw.LastByteRead] = false
 		rw.LastByteRead++
-		rw.Fill[rw.LastByteRead-1] = false
 		if rw.LastByteRead == rw.Size {
 			rw.back = false
 			rw.LastByteRead = 0

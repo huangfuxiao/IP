@@ -284,7 +284,7 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		//Block both write and read
 		//Check tcb state first
 		if !(tcb.State.State == tcp.ESTAB) && !(tcb.State.State == tcp.CLOSEWAIT) && !(tcb.State.State == tcp.SYNRCVD) {
-			fmt.Println("Socket state is not ESTAB, CLOSEWAIT, nor SYNRCVD, and cannot be shutdown!\n")
+			//fmt.Println("Socket state is not ESTAB, CLOSEWAIT, nor SYNRCVD, and cannot be shutdown!\n")
 			return -1
 		}
 
@@ -316,15 +316,19 @@ func (manager *SocketManager) V_close(socket int) int {
 		fmt.Println("Socket closed already!\n")
 		return 0
 	} else if tcb.State.State == tcp.LISTEN {
-		fmt.Printf("V_accept() error on socket %d: Software caused connection abort", socket)
+		//fmt.Printf("V_accept() error on socket %d: Software caused connection abort", socket)
+		newState, _ := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
+		tcb.State.State = newState
 		//Delete TCB
-		delete(manager.FdToSocket, socket)
-		delete(manager.AddrToSocket, tcb.Addr)
+		//delete(manager.FdToSocket, socket)
+		//delete(manager.AddrToSocket, tcb.Addr)
 		return 0
 	} else if tcb.State.State == tcp.SYNSENT {
+		newState, _ := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
+		tcb.State.State = newState
 		//Delete TCB
-		delete(manager.FdToSocket, socket)
-		delete(manager.AddrToSocket, tcb.Addr)
+		//delete(manager.FdToSocket, socket)
+		//delete(manager.AddrToSocket, tcb.Addr)
 		return 0
 	} else {
 		manager.V_shutdown(socket, 3)
@@ -364,6 +368,11 @@ func (manager *SocketManager) CloseThread() {
 		for k, v := range manager.FdToSocket {
 
 			if v.ShouldClose == true {
+				saddr := v.Addr
+				delete(manager.FdToSocket, k)
+				delete(manager.AddrToSocket, saddr)
+			}
+			if v.State.State == tcp.CLOSED {
 				saddr := v.Addr
 				delete(manager.FdToSocket, k)
 				delete(manager.AddrToSocket, saddr)

@@ -229,7 +229,7 @@ func main() {
 						continue
 					}
 					toSend := []byte(cmds[2])
-					fmt.Println("continue to V_wirte")
+					//fmt.Println("continue to V_wirte")
 					ok := thisSocketManager.V_write(socketFd, toSend)
 					if ok == -1 {
 						// fmt.Println("V_write return -1, cannot write")

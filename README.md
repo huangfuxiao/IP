@@ -54,25 +54,25 @@ Language: Go
 * DataACKThread()
           
 #### Description:
-Configure a TCP connection with:
-	Basic information: Socket address(src IP, dst IP, src port, dst port), node, UPD link    
-	State machine: We have implemented most TCP state machine
-	Send window: We implement the send window by a sending buffer and couple pointers: LastByteWritten, LastByteAcked, LastByteSent, BytesInFlight;
+* Configure a TCP connection with:
+* 	Basic information: Socket address(src IP, dst IP, src port, dst port), node, UPD link    
+* 	State machine: We have implemented most TCP state machine
+* 	Send window: We implement the send window by a sending buffer and couple pointers: LastByteWritten, LastByteAcked, LastByteSent, BytesInFlight;
 	             Sending buffer stores data that need to be sent;
 	             BytesInFlight stores the number of data bytes that has already been sent before and waits for ack;
 	             When the user needs to send data, these data may be appended into the tail of the sender buffer;
 	             When the sending data thread is ready to send data, the thread will pop data from the head of the writing buffer and increase the flight bytes number;
 	             When acks arrives, the flight bytes number will be decreased. 
-	Receive window: We implement receive window by a receiving buffer and couple pointers: LastSeq, LastByteRead, NextByteExpected;
+* 	Receive window: We implement receive window by a receiving buffer and couple pointers: LastSeq, LastByteRead, NextByteExpected;
 	                Received data bytes are placed in the receiving buffer based on their sequence number;
 	                If sequence number is not inside the sliding window, it will be dropped;
 	                If data is read out, LastByteRead would be advanced;
 	                If data is written continuous to the receiving buffer, NextByteExpected would be advanced till the end of continuous written data.
-	Sequence/acknowledge number: Sequence number will be generated randomly when the client initiates a connection. 
+* 	Sequence/acknowledge number: Sequence number will be generated randomly when the client initiates a connection. 
 	                             Also, during the three-way handshake, these two TCP peers will synchronize ack numbers. 
-Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. 
+* Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. 
                 When this field becomes 0, the sender will keep sending 1-byte segments to probe the remote window size.	    
-Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection.
+* Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection.
 	            Once it receives a valid ack back, it will cancel the timeout. 
 	            Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 3 times.
 
@@ -114,7 +114,10 @@ Loop through all TCP connections every 3 seconds; If the connection is closed, r
 When received a IP package, and the protocol=6, the package would be passed to TCP handler;    
 First check the TCP checksum; If the packet fail to pass the checksum, drop the packet;
 Find the corresponding connection (transmission control block - TCB) and call receive function for that TCB;
-Split cases when payload is empty or not.
+Split cases when payload is empty or not. 
+When the payload is empty, the tcp packet is a control flag packet.
+When the payload is not empty, the tcp packet is an actual data packet.
+
    
 
 ## 4. Threads:
@@ -129,7 +132,8 @@ Split cases when payload is empty or not.
 
 ## 5. Lock:
 
-Sending/receiving buffer: the mutex lock controls each buffer, which aims to avoid reading and writing at the same time
+* Each sliding window will have a mutex lock.
+* Sending/receiving buffer: the mutex lock controls each buffer, which aims to avoid reading and writing at the same time.
 
 
 ================================================================================================================

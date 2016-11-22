@@ -49,7 +49,7 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 		}
 
 		if newTcb.State.State == tcp.CLOSEWAIT {
-			fmt.Println("break")
+			//fmt.Println("break")
 			break
 		}
 	}
@@ -64,10 +64,10 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 			writeLines(f, bufReadIn)
 		}
 		if newTcb.RecvW.LastByteRead == newTcb.RecvW.NextByteExpected-1 {
-			fmt.Println("break out 2")
+			//fmt.Println("break out 2")
 			break
 		}
-		fmt.Println("loop 2")
+		//fmt.Println("loop 2")
 	}
 
 	fmt.Println("End Receiving File")

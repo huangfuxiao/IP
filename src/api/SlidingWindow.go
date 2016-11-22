@@ -133,7 +133,7 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 			return 0, 0
 		}
 		idx := se - rw.LastSeq
-		/fmt.Println("idx before ", idx)
+		//fmt.Println("idx before ", idx)
 		idx %= rw.Size
 		i := 0
 		//fmt.Println("write into receive buffer:", rw.LastByteRead)

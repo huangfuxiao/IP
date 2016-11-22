@@ -55,26 +55,20 @@ Language: Go
           
 #### Description:
 * Configure a TCP connection with:
-* 	Basic information: Socket address(src IP, dst IP, src port, dst port), node, UPD link    
-* 	State machine: We have implemented most TCP state machine
-* 	Send window: We implement the send window by a sending buffer and couple pointers: LastByteWritten, LastByteAcked, LastByteSent, BytesInFlight;
-	             Sending buffer stores data that need to be sent;
-	             BytesInFlight stores the number of data bytes that has already been sent before and waits for ack;
-	             When the user needs to send data, these data may be appended into the tail of the sender buffer;
-	             When the sending data thread is ready to send data, the thread will pop data from the head of the writing buffer and increase the flight bytes number;
-	             When acks arrives, the flight bytes number will be decreased. 
-* 	Receive window: We implement receive window by a receiving buffer and couple pointers: LastSeq, LastByteRead, NextByteExpected;
-	                Received data bytes are placed in the receiving buffer based on their sequence number;
-	                If sequence number is not inside the sliding window, it will be dropped;
-	                If data is read out, LastByteRead would be advanced;
-	                If data is written continuous to the receiving buffer, NextByteExpected would be advanced till the end of continuous written data.
-* 	Sequence/acknowledge number: Sequence number will be generated randomly when the client initiates a connection. 
-	                             Also, during the three-way handshake, these two TCP peers will synchronize ack numbers. 
-* Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. 
-                When this field becomes 0, the sender will keep sending 1-byte segments to probe the remote window size.	    
-* Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection.
-	            Once it receives a valid ack back, it will cancel the timeout. 
-	            Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 5 times.
+
+* Basic information: Socket address(src IP, dst IP, src port, dst port), node, UPD link    
+
+* State machine: We have implemented most TCP state machine
+
+* Send window: We implement the send window by a sending buffer and couple pointers: LastByteWritten, LastByteAcked, LastByteSent, BytesInFlight; Sending buffer stores data that need to be sent; BytesInFlight stores the number of data bytes that has already been sent before and waits for ack; When the user needs to send data, these data may be appended into the tail of the sender buffer; When the sending data thread is ready to send data, the thread will pop data from the head of the writing buffer and increase the flight bytes number; When acks arrives, the flight bytes number will be decreased.
+		     
+* Receive window: We implement receive window by a receiving buffer and couple pointers: LastSeq, LastByteRead, NextByteExpected; Received data bytes are placed in the receiving buffer based on their sequence number; If sequence number is not inside the sliding window, it will be dropped; If data is read out, LastByteRead would be advanced; If data is written continuous to the receiving buffer, NextByteExpected would be advanced till the end of continuous written data.
+
+* Sequence/acknowledge number: Sequence number will be generated randomly when the client initiates a connection. Also, during the three-way handshake, these two TCP peers will synchronize ack numbers. 
+
+* Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. When this field becomes 0, the sender will keep sending 1-byte segments to probe the remote window size.	    
+* Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection. Once it receives a valid ack back, it will cancel the timeout. Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 5 times.
+		 
 * Receive Lossy:  When an out of order packet arrived, check the seqnum of the packet to see if it can be put into the receiving buffer.  If not, drop the packet.  If so, put the packets into the correspond location in the receiving buffer and resturn ack of the packet that I should receive.  At this time, the advertised window of the receving buffer does not increase.
 
 * Send Lossy:  Each time when the socket send a packet, the packet will be put into a map along with its sequence number.  When the ack of that packet arrives, the packet will be removed from the map.  Otherwise, the packet will be retransmitted 5 times.  After that, the socket will be shutted down.
@@ -142,9 +136,9 @@ When the payload is not empty, the tcp packet is an actual data packet.
 ================================================================================================================
                                                 PERFORMANCE
 ================================================================================================================    
-Test Sendfile and Recvfile on smallfile.dat(1KB), mediumfile.dat(10.5MB), and bigfile.dat(102.4MB):
-	Sendfile: <1s to send smallfile.dat; 12s to send mediumfile.dat; 130s to send bigfile.dat;
-	Recvfile: <1s to receive smallfile.dat; 2s to receive mediumfile.dat; 20s to receive bigfile.dat.
+* Test Sendfile and Recvfile on smallfile.dat(1KB), mediumfile.dat(10.5MB), and bigfile.dat(102.4MB):
+* Sendfile: <1s to send smallfile.dat; 12s to send mediumfile.dat; 130s to send bigfile.dat;
+* Recvfile: <1s to receive smallfile.dat; 2s to receive mediumfile.dat; 20s to receive bigfile.dat.
 
 
 

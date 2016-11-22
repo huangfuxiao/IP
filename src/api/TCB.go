@@ -115,16 +115,18 @@ func (tcb *TCB) SendDataThread() {
 		if len(tcb.PIFCheck.PIF) != 0 {
 			tcb.PIFCheck.Mutex.RLock()
 			for _, v := range tcb.PIFCheck.PIF {
-				// if v.Count < 10 {
-				//fmt.Println("retransmission ", k)
-				tcb.u.Send(v.Ipp, v.Addr, v.Port)
-				v.Count += 1
+				if v.Count < 5 {
+					//fmt.Println("retransmission ", k)
+					tcb.u.Send(v.Ipp, v.Addr, v.Port)
+					v.Count += 1
 
-				//fmt.Println("count, ", v.Count)
-				// } else if v.Count < 5 {
-				// } else {
-				// 	tcb.ShouldClose = true
-				// }
+					//fmt.Println("count, ", v.Count)
+				} else if v.Count < 10 {
+					time.Sleep(5 * time.Millisecond)
+					v.Count++
+				} else {
+					tcb.ShouldClose = true
+				}
 			}
 			tcb.PIFCheck.Mutex.RUnlock()
 			continue

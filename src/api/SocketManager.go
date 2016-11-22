@@ -348,6 +348,7 @@ func (manager *SocketManager) CloseThread() {
 
 			if v.ShouldClose == true {
 				saddr := v.Addr
+				fmt.Println("Connection Reset By Peer")
 				delete(manager.FdToSocket, k)
 				delete(manager.AddrToSocket, saddr)
 			}
@@ -364,7 +365,7 @@ func (manager *SocketManager) CloseThread() {
 func (manager *SocketManager) TimeWaitTimeOut(tcb *TCB, num int) {
 	for {
 		if tcb.State.State == tcp.TIMEWAIT {
-			fmt.Println("You are inside of th TimeWaitTimeOut loop!\n")
+			fmt.Println("You are inside of the TimeWaitTimeOut loop!\n")
 			time.Sleep(time.Duration(num) * time.Millisecond)
 			newState, _ := tcp.StateMachine(tcb.State.State, 0, "")
 			tcb.State.State = newState

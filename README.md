@@ -139,7 +139,7 @@ If the packet is a control flag packet, check the current state and sequence num
                                                 PERFORMANCE
 ================================================================================================================    
 * Test Sendfile and Recvfile on smallfile.dat(1KB), mediumfile.dat(10.5MB), and bigfile.dat(102.4MB):
-* Sendfile: <1s to send smallfile.dat; 12s to send mediumfile.dat; 130s to send bigfile.dat;
+* Sendfile: <1s to send smallfile.dat; 10s to send mediumfile.dat; 120s to send bigfile.dat;
 * Recvfile: <1s to receive smallfile.dat; 2s to receive mediumfile.dat; 20s to receive bigfile.dat.
 
 
@@ -147,7 +147,7 @@ If the packet is a control flag packet, check the current state and sequence num
 ================================================================================================================
                                                     BUGS
 ================================================================================================================
-In some computers in scilib, the recefile command will sometimes fail because of tcp checksum error. But in other computers, this kind of error never appear.  Feel kind of confused about this bug.
+While testing on one computer in scilib, the recefile command will sometimes fail because of tcp checksum error. But on other computers, this kind of error never appear.  Feel kind of confused about this bug. 
 
 
 ================================================================================================================

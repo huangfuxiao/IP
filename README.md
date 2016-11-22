@@ -58,7 +58,7 @@ Language: Go
 
 * Basic information: Socket address(src IP, dst IP, src port, dst port), node, UPD link    
 
-* State machine: We have implemented most TCP state machine
+* State machine: We have implemented the entire TCP state machine
 
 * Send window: We implement the send window by a sending buffer and couple pointers: LastByteWritten, LastByteAcked, LastByteSent, BytesInFlight; Sending buffer stores data that need to be sent; BytesInFlight stores the number of data bytes that has already been sent before and waits for ack; When the user needs to send data, these data may be appended into the tail of the sender buffer; When the sending data thread is ready to send data, the thread will pop data from the head of the writing buffer and increase the flight bytes number; When acks arrives, the flight bytes number will be decreased.
 		     
@@ -112,8 +112,10 @@ When received a IP package, and the protocol=6, the package would be passed to T
 First check the TCP checksum; If the packet fail to pass the checksum, drop the packet;
 Find the corresponding connection (transmission control block - TCB) and call receive function for that TCB;
 Split cases when payload is empty or not. 
-When the payload is empty, the tcp packet is a control flag packet.
 When the payload is not empty, the tcp packet is an actual data packet.
+When the payload is empty, the tcp packet is a control flag packet.
+If the packet is a control flag packet, check the current state and sequence number.  If both matches, change the state.
+
 
    
 

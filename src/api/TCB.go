@@ -109,28 +109,26 @@ func (tcb *TCB) SendCtrlMsg(ctrl int, c bool, notestb bool, ws int) {
 }
 
 func (tcb *TCB) SendDataThread() {
+	time.Sleep(10 * time.Millisecond)
 	for {
-		// fmt.Println("Last Byte Sent ", tcb.SendW.LastByteSent)
-		// fmt.Println("Last Byte Written ", tcb.SendW.LastByteWritten)
 		time.Sleep(1 * time.Millisecond)
 		if len(tcb.PIFCheck.PIF) != 0 {
 			tcb.PIFCheck.Mutex.RLock()
-			for k, v := range tcb.PIFCheck.PIF {
-				fmt.Println("retransmission seq ", int(k)-v.Length)
-				//if v.Count < 3 {
+			for _, v := range tcb.PIFCheck.PIF {
+				// if v.Count < 10 {
+				//fmt.Println("retransmission ", k)
 				tcb.u.Send(v.Ipp, v.Addr, v.Port)
 				v.Count += 1
-				//fmt.Println("count, ", v.Count)
 
+				//fmt.Println("count, ", v.Count)
+				// } else if v.Count < 5 {
 				// } else {
 				// 	tcb.ShouldClose = true
-				//}
-
+				// }
 			}
 			tcb.PIFCheck.Mutex.RUnlock()
 			continue
 		}
-		tcb.SendW.Mutex.RLock()
 		if tcb.SendW.WSback {
 			if tcb.SendW.LastByteSent+tcb.SendW.Size == tcb.SendW.LastByteWritten {
 				fmt.Println("continue-----------")
@@ -141,13 +139,11 @@ func (tcb *TCB) SendDataThread() {
 				continue
 			}
 		}
-		tcb.SendW.Mutex.RUnlock()
 		bytesToSent := tcb.SendW.EffectiveWindow()
 		if bytesToSent < 0 && tcb.SendW.AdvertisedWindow != 0 {
 			continue
 		}
 		if tcb.SendW.AdvertisedWindow == 0 {
-			fmt.Println("send advertisedWindow == 0")
 			bytesToSent = 1
 		}
 		if bytesToSent > 1024 {
@@ -185,8 +181,6 @@ func (tcb *TCB) SendDataThread() {
 			tcb.SendData(payload, tcb.RecvW.AdvertisedWindow())
 			tcb.SendW.BytesInFlight += len(payload)
 		}
-		//fmt.Println("recent bytes in flight: ", tcb.SendW.BytesInFlight)
-		//fmt.Println("lastbyteSent ", tcb.SendW.LastByteSent)
 	}
 }
 
@@ -214,7 +208,7 @@ func (tcb *TCB) SendData(payload []byte, ws int) {
 				tcb.PIFCheck.Mutex.Lock()
 				tcb.PIFCheck.PIF[uint32(tcb.Seq)] = &PkgInFlight{len(payload), 0, ipPkt, link.RemoteAddr, link.RemotePort}
 				tcb.PIFCheck.Mutex.Unlock()
-				fmt.Println("tcb seq send ", tcb.Seq-len(payload), len(payload))
+				//fmt.Println("tcb seq send ", tcb.Seq-len(payload), len(payload))
 				//if c {
 				// fmt.Println("Check seq after, ", tcb.Seq-len(payload))
 				// go CheckACK(tcb.Seq, tcb, 0, ipPkt, link.RemoteAddr, link.RemotePort)
@@ -281,24 +275,3 @@ func (tcb *TCB) DataACKThread() {
 
 	}
 }
-
-/*
-func receiveSynAck(laddr, raddr string) {
-	for {
-		buf := make([]byte, 1024)
-		numRead, raddr, err := conn.ReadFrom(buf)
-		if err != nil {
-			log.Fatalf("ReadFrom: %s\n", err)
-		}
-		if raddr.String() != remoteAddress {
-			// this is not the packet we are looking for
-			continue
-		}
-		tcp := NewTCPHeader(buf[:numRead])
-		// Closed port gets RST, open port gets SYN ACK
-		if tcp.HasFlag(RST) || (tcp.HasFlag(SYN) && tcp.HasFlag(ACK)) {
-			break
-		}
-	}
-}
-*/

@@ -133,7 +133,7 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 			return 0, 0
 		}
 		idx := se - rw.LastSeq
-		fmt.Println("idx before ", idx)
+		/fmt.Println("idx before ", idx)
 		idx %= rw.Size
 		i := 0
 		//fmt.Println("write into receive buffer:", rw.LastByteRead)
@@ -173,7 +173,6 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 
 		if order {
 			for {
-
 				if rw.NextByteExpected == 0 {
 					if rw.Fill[rw.Size-1] == false {
 						break
@@ -197,10 +196,6 @@ func (rw *RecvWindow) Receive(data []byte, se int, order bool) (int, int) {
 			}
 		}
 
-		fmt.Println("last byte read ", rw.LastByteRead)
-		fmt.Println("last Next expect:", rw.NextByteExpected)
-		fmt.Println("sequence ", se, rw.LastSeq)
-		fmt.Println("gap ", rw.back)
 	}
 	//fmt.Println("recebuff remaining:", rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20])
 	// fmt.Println("recebuff remaining:", string(rw.RecvBuffer[rw.LastByteRead:rw.LastByteRead+20]))

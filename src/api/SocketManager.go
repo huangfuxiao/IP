@@ -29,25 +29,6 @@ func BuildSocketManager(interfaceArray []*pkg.Interface) SocketManager {
 	return SocketManager{0, 1024, map1, map2, set}
 }
 
-//Build a fake manager for testing; Will be removed after testing
-/*
-func buildTestMananger(interfaceArray []*pkg.Interface) *SocketManager {
-	testManager := BuildSocketManager(interfaceArray)
-	fd := testManager.Fdnum
-	port := 1
-	for addr, _ := range testManager.Interfaces {
-		saddr := SockAddr{addr, port, "0.0.0.0", 0}
-		buf := make([]byte, 0)
-		s := tcp.State{State: 1}
-		tcb := TCB{fd, s, saddr, 0, 0, buf, buf}
-		testManager.FdToSocket[fd] = &tcb
-		testManager.AddrToSocket[saddr] = &tcb
-		fd++
-	}
-	return &testManager
-}
-*/
-
 func (manager *SocketManager) PrintSockets() {
 	//Build a test manager for testing; Will be removed after testing
 	//manager = buildTestMananger(interfaceArray)
@@ -57,7 +38,7 @@ func (manager *SocketManager) PrintSockets() {
 	fmt.Println("--------------------------------------------------------------")
 	for fd, tcb := range manager.FdToSocket {
 		state := tcp.StateString(tcb.State.State)
-		fmt.Printf("%d\t%s\t%d\t\t%s\t\t%d\t%s\n", fd, tcb.Addr.LocalAddr, tcb.Addr.LocalPort, tcb.Addr.RemoteAddr, tcb.Addr.RemotePort, state)
+		fmt.Printf("%d\t%s\t%d\t\t%s\t%d\t%s\n", fd, tcb.Addr.LocalAddr, tcb.Addr.LocalPort, tcb.Addr.RemoteAddr, tcb.Addr.RemotePort, state)
 	}
 }
 
@@ -196,7 +177,6 @@ func (manager *SocketManager) V_read(socket int, nbyte int, check string) (int, 
 			readLen = readLen + count
 		}
 	}
-	fmt.Println("read leangth in socketmanager vread ", readLen)
 
 	return readLen, buf
 }
@@ -226,7 +206,6 @@ func (manager *SocketManager) V_write(socket int, data []byte) int {
 		writeLen := tcb.SendW.Write(data)
 		count += writeLen
 		if count < length {
-			//fmt.Println("writeLen ", writeLen)
 			data = data[writeLen:]
 		}
 
@@ -274,9 +253,9 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 		tcb.State.State = newState
 
-		fmt.Printf("Shutdown Write: this is the cf: %d \n", cf)
+		//fmt.Printf("Shutdown Write: this is the cf: %d \n", cf)
 		tcb.SendCtrlMsg(cf, false, true, tcb.RecvW.AdvertisedWindow())
-		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
+		//fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
 	case 2:
 		//Block read;
 		tcb.BlockRead = true
@@ -298,9 +277,9 @@ func (manager *SocketManager) V_shutdown(socket int, ntype int) int {
 		newState, cf := tcp.StateMachine(tcb.State.State, 0, "CLOSE")
 		tcb.State.State = newState
 
-		fmt.Printf("Shutdown both: this is the cf: %d \n", cf)
+		//fmt.Printf("Shutdown both: this is the cf: %d \n", cf)
 		tcb.SendCtrlMsg(cf, false, true, tcb.RecvW.AdvertisedWindow())
-		fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
+		//fmt.Println("Shutdown Write seqnum and ack num : ", tcb.Seq, tcb.Ack)
 	}
 	return 0
 }
@@ -332,15 +311,15 @@ func (manager *SocketManager) V_close(socket int) int {
 		return 0
 	} else {
 		manager.V_shutdown(socket, 3)
-		time.Sleep(3000 * time.Millisecond)
-		if tcb.State.State == tcp.FINWAIT2 {
-			newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
-			tcb.State.State = newState
-			go manager.TimeWaitTimeOut(tcb, 10)
-		} else if tcb.State.State == tcp.LASTACK {
-			newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
-			tcb.State.State = newState
-		}
+		// time.Sleep(3000 * time.Millisecond)
+		// if tcb.State.State == tcp.FINWAIT2 {
+		// 	newState, _ := tcp.StateMachine(tcb.State.State, tcp.FIN, "")
+		// 	tcb.State.State = newState
+		// 	go manager.TimeWaitTimeOut(tcb, 10)
+		// } else if tcb.State.State == tcp.LASTACK {
+		// 	newState, _ := tcp.StateMachine(tcb.State.State, tcp.ACK, "")
+		// 	tcb.State.State = newState
+		// }
 		return 0
 	}
 }
@@ -364,7 +343,7 @@ func min(a, b int) int {
 
 func (manager *SocketManager) CloseThread() {
 	for {
-		time.Sleep(3000 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 		for k, v := range manager.FdToSocket {
 
 			if v.ShouldClose == true {

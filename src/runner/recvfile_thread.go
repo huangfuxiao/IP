@@ -10,7 +10,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"time"
+	//"time"
 )
 
 func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMutex, thisSocketManager *api.SocketManager, cmds []string) {
@@ -24,7 +24,6 @@ func Recvfile_thread(udp linklayer.UDPLink, thisNode *pkg.Node, mutex *sync.RWMu
 	socketFd := thisSocketManager.V_socket(thisNode, udp)
 	thisSocketManager.V_bind(socketFd, "", port)
 	thisSocketManager.V_listen(socketFd)
-	time.Sleep(6000 * time.Millisecond)
 
 	//Find the new socket after connection is established
 	tcb, _ := thisSocketManager.FdToSocket[socketFd]

@@ -69,7 +69,7 @@ Language: Go
 * Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. When this field becomes 0, the sender will keep sending 1-byte segments to probe the remote window size.	    
 * Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection. Once it receives a valid ack back, it will cancel the timeout. Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 5 times.
 		 
-* Receive Lossy:  When an out of order packet arrived, check the seqnum of the packet to see if it can be put into the receiving buffer.  If not, drop the packet.  If so, put the packets into the correspond location in the receiving buffer and resturn ack of the packet that I should receive.  At this time, the advertised window of the receving buffer does not increase.
+* Receive Lossy:  When an out of order packet arrived, check the seqnum of the packet to see if it can be put into the receiving buffer.  If not, drop the packet.  If so, put the packets into the corresponding location in the receiving buffer and resturn ack of the packet that I should receive.  At this time, the advertised window of the receving buffer does not change.
 
 * Send Lossy:  Each time when the socket send a packet, the packet will be put into a map along with its sequence number.  When the ack of that packet arrives, the packet will be removed from the map.  Otherwise, the packet will be retransmitted 5 times.  After that, the socket will be shutted down.
 

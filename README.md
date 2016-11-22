@@ -72,9 +72,11 @@ Language: Go
 	                             Also, during the three-way handshake, these two TCP peers will synchronize ack numbers. 
 * Flow control:   The sender can know the advertised window size (available buffer size) of receiver by checking the window size field in the TCP head. 
                 When this field becomes 0, the sender will keep sending 1-byte segments to probe the remote window size.	    
-* Timeout:	    Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection.
+* Timeout:	    
+Establishing or teardowning a connection timeout: it will do 3 re-transmit SYN or FIN for establishing or teardowning a new connection.
 	            Once it receives a valid ack back, it will cancel the timeout. 
-	            Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 3 times.
+	            Data sending timeout: When the sender fails to receive valid ACK, it will retansmit all flight date for at most 5 times.
+* Lossy:
 
 	        
 ## 2. Socket API:

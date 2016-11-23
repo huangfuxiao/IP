@@ -142,6 +142,7 @@ If the packet is a control flag packet, check the current state and sequence num
 * Test Sendfile and Recvfile on smallfile.dat(1KB), mediumfile.dat(10.5MB), and bigfile.dat(102.4MB):
 * Sendfile: <1s to send smallfile.dat; 10s to send mediumfile.dat; 120s to send bigfile.dat;
 * Recvfile: <1s to receive smallfile.dat; 2s to receive mediumfile.dat; 19s to receive bigfile.dat.
+* If add a lossy node in between two nodes, the transmission time will increase sharply.
 
 
 
